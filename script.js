@@ -1,12 +1,24 @@
 const FIELD_SIZE = 8;
 const MINES_COUNT = 10;
+const POINTS_PER_CELL = 10;
 let field = [];
 let revealed = [];
 let gameOver = false;
+let score = 0;
 
 const gameField = document.getElementById('game-field');
 const restartButton = document.getElementById('restart');
 const statusDiv = document.getElementById('status');
+
+// Создаём счётчик очков
+const scoreDiv = document.createElement('div');
+scoreDiv.id = 'score';
+scoreDiv.style.position = 'absolute';
+scoreDiv.style.top = '10px';
+scoreDiv.style.left = '10px';
+scoreDiv.style.fontSize = '20px';
+scoreDiv.style.fontWeight = 'bold';
+document.body.appendChild(scoreDiv);
 
 window.Telegram.WebApp.ready();
 window.Telegram.WebApp.expand();
@@ -44,23 +56,30 @@ function renderField() {
             cell.className = 'cell';
             if (revealed[i][j]) {
                 cell.classList.add('revealed');
-                cell.textContent = field[i][j] === 0 ? '' : field[i][j];
+                if (field[i][j] === '💣') {
+                    cell.textContent = '💣';
+                } else {
+                    cell.textContent = field[i][j] === 0 ? '' : field[i][j];
+                }
             }
             cell.addEventListener('click', () => openCell(i, j));
             gameField.appendChild(cell);
         }
     }
+    updateScore();
 }
 
 function openCell(x, y) {
     if (gameOver || revealed[x][y]) return;
     
     revealed[x][y] = true;
+    
     if (field[x][y] === '💣') {
         gameOver = true;
         statusDiv.textContent = 'Вы проиграли!';
         revealAll();
     } else {
+        score += POINTS_PER_CELL; // Начисляем очки
         renderField();
         checkWin();
     }
@@ -84,8 +103,13 @@ function revealAll() {
     renderField();
 }
 
+function updateScore() {
+    scoreDiv.textContent = `Очки: ${score}`;
+}
+
 function startGame() {
     gameOver = false;
+    score = 0;
     statusDiv.textContent = '';
     createField();
     renderField();
