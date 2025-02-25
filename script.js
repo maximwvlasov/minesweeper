@@ -23,11 +23,10 @@ function getUserInfo() {
 const FIELD_SIZE = 8;
 const MINES_COUNT = 10;
 const POINTS_PER_CELL = 10;
-let field = [];
+field = [];
 let revealed = [];
 let gameOver = false;
 let score = 0;
-
 // Элементы DOM
 let gameField, scoreDiv, buttonContainer, leaderboardDiv, startButton, startMenu, minesweeperLaunch, backButton, leaderboardContainer, leaderboardContent, playerPosition, playerTotalScore, playerLeaderboardName;
 // Ожидание инициализации Telegram WebApp
