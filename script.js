@@ -21,20 +21,29 @@ scoreDiv.style.fontSize = '20px';
 scoreDiv.style.fontWeight = 'bold';
 document.body.appendChild(scoreDiv);
 
-// Создаём рейтинг игроков
+// Кнопка рейтинга
+const leaderboardButton = document.createElement('button');
+leaderboardButton.textContent = 'Мой рейтинг';
+leaderboardButton.style.position = 'absolute';
+leaderboardButton.style.top = '40px';
+leaderboardButton.style.left = '10px';
+document.body.appendChild(leaderboardButton);
+
+// Окно с рейтингом
 const leaderboardDiv = document.createElement('div');
 leaderboardDiv.id = 'leaderboard';
 leaderboardDiv.style.position = 'absolute';
-leaderboardDiv.style.top = '40px';
+leaderboardDiv.style.top = '80px';
 leaderboardDiv.style.left = '10px';
 leaderboardDiv.style.fontSize = '16px';
+leaderboardDiv.style.display = 'none';
 document.body.appendChild(leaderboardDiv);
 
 window.Telegram.WebApp.ready();
 window.Telegram.WebApp.expand();
 
 function getUserName() {
-    return window.Telegram.WebApp.initDataUnsafe?.user?.username || 'Аноним';
+    return window.Telegram.WebApp.initDataUnsafe?.user?.first_name || 'Аноним';
 }
 
 function createField() {
@@ -81,7 +90,6 @@ function renderField() {
         }
     }
     updateScore();
-    updateLeaderboard();
 }
 
 function openCell(x, y) {
@@ -102,39 +110,18 @@ function openCell(x, y) {
     }
 }
 
-function checkWin() {
-    let closedCells = 0;
-    for (let i = 0; i < FIELD_SIZE; i++) {
-        for (let j = 0; j < FIELD_SIZE; j++) {
-            if (!revealed[i][j] && field[i][j] !== '💣') closedCells++;
-        }
-    }
-    if (closedCells === 0) {
-        gameOver = true;
-        statusDiv.textContent = 'Вы выиграли!';
-        saveScore();
-    }
-}
-
-function revealAll() {
-    revealed = revealed.map(row => row.map(() => true));
-    renderField();
-}
-
-function updateScore() {
-    scoreDiv.textContent = `Очки: ${score}`;
-}
-
 function saveScore() {
     const username = getUserName();
+    leaderboard = leaderboard.filter(entry => entry.username !== username);
     leaderboard.push({ username, score });
     leaderboard.sort((a, b) => b.score - a.score);
     localStorage.setItem('leaderboard', JSON.stringify(leaderboard));
 }
 
-function updateLeaderboard() {
-    leaderboardDiv.innerHTML = '<b>Рейтинг:</b><br>' + leaderboard.map(entry => `${entry.username}: ${entry.score}`).join('<br>');
-}
+leaderboardButton.addEventListener('click', () => {
+    leaderboardDiv.style.display = leaderboardDiv.style.display === 'none' ? 'block' : 'none';
+    leaderboardDiv.innerHTML = '<b>Рейтинг игроков:</b><br>' + leaderboard.map((entry, index) => `${index + 1}. ${entry.username}: ${entry.score}`).join('<br>');
+});
 
 function startGame() {
     gameOver = false;
