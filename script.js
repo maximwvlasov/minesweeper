@@ -86,13 +86,13 @@ leaderboardDiv.style.cssText = `
     display: none;
     margin: 20px auto;
     padding: 15px;
-    background: #f5f5f5; /* Светло-серый фон вместо чёрного */
+    background: #f5f5f5;
     border-radius: 10px;
     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
     width: 300px;
     max-height: 400px;
     overflow-y: auto;
-    color: #333; /* Тёмный текст для читаемости */
+    color: #333;
 `;
 document.body.appendChild(leaderboardDiv);
 
@@ -101,9 +101,10 @@ window.Telegram.WebApp.expand();
 
 function getUserInfo() {
     const user = window.Telegram.WebApp.initDataUnsafe?.user;
+    console.log("User data from Telegram:", user); // Отладочный лог
     return {
-        username: user?.username || user?.first_name || 'Аноним', // Используем username, если есть, иначе имя
-        id: user?.id // ID пользователя для уникальности
+        id: user?.id || 'anonymous_' + Math.random().toString(36).substr(2, 9), // Уникальный ID, если Telegram не предоставляет
+        username: user?.username || user?.first_name || 'Аноним'
     };
 }
 
@@ -226,17 +227,21 @@ function updateScore() {
 
 function saveScore() {
     const user = getUserInfo();
-    const userRef = ref(db, `players/${user.id}`); // Используем ID для уникальности
+    const userRef = ref(db, `players/${user.id}`);
+    console.log("Saving score for user:", user, "with score:", score); // Отладочный лог
     get(userRef).then(snapshot => {
         let currentScore = snapshot.exists() ? snapshot.val().totalScore || 0 : 0;
         update(userRef, {
             username: user.username,
-            totalScore: currentScore + score // Суммируем счёт
+            totalScore: currentScore + score
+        }).then(() => {
+            console.log("Score saved successfully for user:", user.id);
         }).catch(error => console.error("Ошибка сохранения счёта:", error));
     }).catch(error => console.error("Ошибка загрузки счёта:", error));
 }
 
 function showLeaderboard() {
+    console.log("Loading leaderboard..."); // Отладочный лог
     get(ref(db, 'players')).then(snapshot => {
         leaderboardDiv.innerHTML = '<h3 style="color: #333;">Рейтинг игроков</h3>';
         if (snapshot.exists()) {
@@ -244,9 +249,13 @@ function showLeaderboard() {
             const sortedPlayers = Object.entries(players)
                 .sort((a, b) => b[1].totalScore - a[1].totalScore)
                 .slice(0, 10); // Топ-10 игроков
-            sortedPlayers.forEach(([id, data]) => {
-                leaderboardDiv.innerHTML += `<p>${data.username}: ${data.totalScore}</p>`;
-            });
+            if (sortedPlayers.length > 0) {
+                sortedPlayers.forEach(([id, data]) => {
+                    leaderboardDiv.innerHTML += `<p>${data.username}: ${data.totalScore}</p>`;
+                });
+            } else {
+                leaderboardDiv.innerHTML += '<p>Пока нет игроков</p>';
+            }
         } else {
             leaderboardDiv.innerHTML += '<p>Пока нет игроков</p>';
         }
@@ -262,7 +271,7 @@ function showLeaderboard() {
 
 function startGame() {
     gameOver = false;
-    score = 0; // Сбрасываем счёт для текущей игры, но сохраняем общий в Firebase
+    score = 0;
     createField();
     renderField();
     leaderboardDiv.style.display = 'none';
