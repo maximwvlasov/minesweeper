@@ -30,6 +30,7 @@
             align-items: center;
             padding: 0 10px;
             box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.5);
+            z-index: 1001; /* Убедимся, что панель выше других элементов */
         }
 
         #start-button {
@@ -88,6 +89,7 @@
             border: 2px solid #808080;
             box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.5);
             margin-top: 20px;
+            z-index: 900; /* Убедимся, что контейнеры ниже панели задач */
         }
 
         #game-container.active, #leaderboard-container.active {
@@ -203,7 +205,7 @@
         <div class="menu-item" id="minesweeper-launch">Сапёр <span style="font-size: 12px;">💣</span></div>
     </div>
 
-    <div id="game-container">
+    <div id="game-container" class="active"> <!-- Добавляем класс 'active' по умолчанию -->
         <div id="score">Счёт: 0</div>
         <div id="gameField"></div>
         <div id="buttonContainer"></div>
