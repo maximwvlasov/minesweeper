@@ -52,26 +52,43 @@ waitForTelegram().then(() => {
     function getUserInfo() {
         if (window.Telegram && window.Telegram.WebApp.initDataUnsafe?.user) {
             const user = window.Telegram.WebApp.initDataUnsafe.user;
-            // Приоритетно используем username, если он есть
-            if (user.username) {
-                return {
-                    username: user.username,
-                    first_name: user.first_name || user.username
-                };
-            } else {
-                // Если username отсутствует, используем first_name или генерируем анонимный идентификатор
-                return {
-                    username: user.first_name || `anonymous_${Math.random().toString(36).substr(2, 9)}`,
-                    first_name: user.first_name || 'Аноним'
-                };
-            }
+            // Проверяем, есть ли у пользователя Telegram Premium (например, через is_premium, если доступно)
+            const isPremium = user.is_premium || false; // Это поле может быть доступно в initDataUnsafe
+            return {
+                username: user.username || `anonymous_${Math.random().toString(36).substr(2, 9)}`,
+                first_name: user.first_name || 'Аноним',
+                is_premium: isPremium
+            };
         } else {
             // В тестовом режиме генерируем анонимный идентификатор
             return {
                 username: `anonymous_${Math.random().toString(36).substr(2, 9)}`,
-                first_name: 'Аноним'
+                first_name: 'Аноним',
+                is_premium: false
             };
         }
+    }
+
+    // Функция запроса разрешения на отображение имени в рейтинге
+    function requestPermissionToShowName(user, callback) {
+        const message = user.is_premium 
+            ? 'Вы используете Telegram Premium. Разрешить отображение вашего имени в рейтинге?' 
+            : 'Разрешить отображение вашего имени в рейтинге?';
+        
+        window.Telegram.WebApp.showPopup({
+            title: 'Разрешение на рейтинг',
+            message: message,
+            buttons: [
+                { id: 'yes', type: 'ok', text: 'Да' },
+                { id: 'no', type: 'cancel', text: 'Нет' }
+            ]
+        }, (btn) => {
+            if (btn.id === 'yes') {
+                callback(true); // Пользователь разрешил показ имени
+            } else {
+                callback(false); // Пользователь запретил показ имени
+            }
+        });
     }
 
     // Функция создания игрового поля с минами
@@ -179,7 +196,7 @@ waitForTelegram().then(() => {
         scoreDiv.textContent = `Счёт: ${score}`;
     }
 
-    // Функция сохранения счёта в Firebase по username с отладкой
+    // Функция сохранения счёта в Firebase по username с отладкой и запросом разрешения
     function saveScore() {
         const user = getUserInfo();
         console.log("Попытка сохранить счёт для пользователя:", user);
@@ -188,20 +205,44 @@ waitForTelegram().then(() => {
             return;
         }
         const { ref, get, update } = window.firebaseFunctions;
-        const userRef = ref(window.db, `players/${user.username}`);
-        get(userRef).then(snapshot => {
-            let currentScore = snapshot.exists() ? snapshot.val().totalScore || 0 : 0;
-            console.log("Текущий счёт в базе:", currentScore);
-            update(userRef, {
-                username: user.username,
-                totalScore: currentScore + score,
-                first_name: user.first_name
-            }).then(() => {
-                console.log("Счёт успешно сохранён для:", user.username);
-            }).catch(error => {
-                console.error("Ошибка сохранения счёта:", error);
-            });
-        }).catch(error => console.error("Ошибка чтения данных из Firebase:", error));
+
+        // Запрашиваем разрешение на отображение имени
+        requestPermissionToShowName(user, (showName) => {
+            if (showName) {
+                // Пользователь разрешил показ имени
+                const userRef = ref(window.db, `players/${user.username}`);
+                get(userRef).then(snapshot => {
+                    let currentScore = snapshot.exists() ? snapshot.val().totalScore || 0 : 0;
+                    console.log("Текущий счёт в базе:", currentScore);
+                    update(userRef, {
+                        username: user.username,
+                        totalScore: currentScore + score,
+                        first_name: user.first_name
+                    }).then(() => {
+                        console.log("Счёт успешно сохранён для:", user.username);
+                    }).catch(error => {
+                        console.error("Ошибка сохранения счёта:", error);
+                    });
+                }).catch(error => console.error("Ошибка чтения данных из Firebase:", error));
+            } else {
+                // Пользователь запретил показ имени — сохраняем как аноним
+                const anonUsername = `anonymous_${Math.random().toString(36).substr(2, 9)}`;
+                const userRef = ref(window.db, `players/${anonUsername}`);
+                get(userRef).then(snapshot => {
+                    let currentScore = snapshot.exists() ? snapshot.val().totalScore || 0 : 0;
+                    console.log("Текущий анонимный счёт в базе:", currentScore);
+                    update(userRef, {
+                        username: anonUsername,
+                        totalScore: currentScore + score,
+                        first_name: 'Аноним'
+                    }).then(() => {
+                        console.log("Анонимный счёт успешно сохранён для:", anonUsername);
+                    }).catch(error => {
+                        console.error("Ошибка сохранения анонимного счёта:", error);
+                    });
+                }).catch(error => console.error("Ошибка чтения анонимных данных из Firebase:", error));
+            }
+        });
     }
 
     // Функция показа рейтинга по username
