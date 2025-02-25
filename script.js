@@ -40,13 +40,13 @@ function getUserInfo() {
     if (window.Telegram && window.Telegram.WebApp.initDataUnsafe?.user) {
         const user = window.Telegram.WebApp.initDataUnsafe.user;
         return {
-            id: user.id || 'anonymous_' + Math.random().toString(36).substr(2, 9),
-            username: user.username || user.first_name || 'Аноним'
+            username: user.username || `anonymous_${Math.random().toString(36).substr(2, 9)}`,
+            first_name: user.first_name || 'Аноним'
         };
     } else {
         return {
-            id: 'anonymous_' + Math.random().toString(36).substr(2, 9),
-            username: 'Аноним'
+            username: `anonymous_${Math.random().toString(36).substr(2, 9)}`,
+            first_name: 'Аноним'
         };
     }
 }
@@ -156,20 +156,21 @@ function updateScore() {
     scoreDiv.textContent = `Счёт: ${score}`;
 }
 
-// Функция сохранения счёта в Firebase
+// Функция сохранения счёта в Firebase по username
 function saveScore() {
     const user = getUserInfo();
-    const userRef = ref(window.db, `players/${user.id}`);
+    const userRef = ref(window.db, `players/${user.username}`);
     get(userRef).then(snapshot => {
         let currentScore = snapshot.exists() ? snapshot.val().totalScore || 0 : 0;
         update(userRef, {
             username: user.username,
-            totalScore: currentScore + score
+            totalScore: currentScore + score,
+            first_name: user.first_name
         });
     }).catch(error => console.error("Ошибка сохранения счёта:", error));
 }
 
-// Функция показа рейтинга
+// Функция показа рейтинга по username
 function showLeaderboard() {
     leaderboardDiv.style.display = 'block';
     leaderboardDiv.innerHTML = '<h3>Рейтинг игроков</h3>';
@@ -180,8 +181,8 @@ function showLeaderboard() {
                 .sort((a, b) => b[1].totalScore - a[1].totalScore)
                 .slice(0, 10);
             if (sortedPlayers.length > 0) {
-                sortedPlayers.forEach(([id, data]) => {
-                    leaderboardDiv.innerHTML += `<p>${data.username}: ${data.totalScore}</p>`;
+                sortedPlayers.forEach(([username, data]) => {
+                    leaderboardDiv.innerHTML += `<p>${data.first_name || username}: ${data.totalScore}</p>`;
                 });
             } else {
                 leaderboardDiv.innerHTML += '<p>Пока нет игроков</p>';
