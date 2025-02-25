@@ -22,7 +22,13 @@ let revealed = [];
 let gameOver = false;
 let score = 0;
 
-const gameField = document.getElementById('game-field');
+let gameField = document.getElementById('game-field');
+if (!gameField) {
+    gameField = document.createElement('div');
+    gameField.id = 'game-field';
+    document.body.insertBefore(gameField, restartButton);
+}
+
 gameField.style.display = 'grid';
 gameField.style.gridTemplateColumns = `repeat(${FIELD_SIZE}, 40px)`;
 gameField.style.gap = '2px';
@@ -126,29 +132,6 @@ function openCell(x, y) {
         saveScore();
     }
 }
-
-function saveScore() {
-    const username = getUserName();
-    set(ref(db, 'leaderboard/' + username), {
-        username: username,
-        score: score
-    });
-}
-
-leaderboardButton.addEventListener('click', async () => {
-    const leaderboardRef = ref(db, 'leaderboard');
-    get(leaderboardRef).then((snapshot) => {
-        if (snapshot.exists()) {
-            let data = snapshot.val();
-            let sortedLeaderboard = Object.values(data).sort((a, b) => b.score - a.score);
-            leaderboardDiv.innerHTML = '<b>Рейтинг игроков:</b><br>' +
-                sortedLeaderboard.map((entry, index) => `${index + 1}. ${entry.username}: ${entry.score}`).join('<br>');
-            leaderboardDiv.style.display = 'block';
-        } else {
-            leaderboardDiv.innerHTML = "Рейтинг пуст.";
-        }
-    });
-});
 
 function startGame() {
     gameOver = false;
