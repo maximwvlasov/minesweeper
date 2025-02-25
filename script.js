@@ -143,7 +143,7 @@ function revealAll() {
             revealed[i][j] = true;
         }
     }
-    renderField();
+    renderField(); // Убедимся, что поле перерендеривается
 }
 
 // Функция проверки победы
@@ -166,18 +166,24 @@ function updateScore() {
     scoreDiv.textContent = `Счёт: ${score}`;
 }
 
-// Функция сохранения счёта в Firebase по username
+// Функция сохранения счёта в Firebase по username с отладкой
 function saveScore() {
     const user = getUserInfo();
+    console.log("Попытка сохранить счёт для пользователя:", user);
     const userRef = ref(window.db, `players/${user.username}`);
     get(userRef).then(snapshot => {
         let currentScore = snapshot.exists() ? snapshot.val().totalScore || 0 : 0;
+        console.log("Текущий счёт в базе:", currentScore);
         update(userRef, {
             username: user.username,
             totalScore: currentScore + score,
             first_name: user.first_name
+        }).then(() => {
+            console.log("Счёт успешно сохранён для:", user.username);
+        }).catch(error => {
+            console.error("Ошибка сохранения счёта:", error);
         });
-    }).catch(error => console.error("Ошибка сохранения счёта:", error));
+    }).catch(error => console.error("Ошибка чтения данных из Firebase:", error));
 }
 
 // Функция показа рейтинга по username
