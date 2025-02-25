@@ -1,4 +1,4 @@
-// Исправленный script.js для Telegram Mini App
+// Исправленный script.js для Telegram Mini App без экрана рейтинга и кнопки "Назад"
 
 // Ждём загрузки Telegram WebApp
 function waitForTelegram() {
@@ -20,16 +20,12 @@ waitForTelegram().then(() => {
     const startMenu = document.getElementById('start-menu');
     const minesweeperLaunch = document.getElementById('minesweeper-launch');
     const gameContainer = document.getElementById('game-container');
-    const leaderboardContainer = document.getElementById('leaderboard-container');
     const taskbar = document.getElementById('taskbar');
-    const backButton = document.getElementById('back-button');
 
     // Убедимся, что taskbar и startButton видны, а остальные скрыты
     taskbar.style.display = 'flex';
     startMenu.style.display = 'none';
     gameContainer.style.display = 'none';
-    leaderboardContainer.style.display = 'none';
-    backButton.style.display = 'none';
 
     // Обработчик для кнопки "Start"
     startButton.addEventListener('click', () => {
@@ -40,20 +36,7 @@ waitForTelegram().then(() => {
     minesweeperLaunch.addEventListener('click', () => {
         startMenu.style.display = 'none';
         gameContainer.style.display = 'block';
-        leaderboardContainer.style.display = 'none';
-        backButton.style.display = 'block';
     });
-
-    // Обработчик для кнопки "Назад"
-    backButton.addEventListener('click', () => {
-        gameContainer.style.display = 'none';
-        leaderboardContainer.style.display = 'none';
-        startMenu.style.display = 'none';
-        backButton.style.display = 'none';
-    });
-
-    console.log("Исправленный скрипт загружен.");
-});
 
     console.log("Исправленный скрипт загружен.");
 });
