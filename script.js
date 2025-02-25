@@ -30,33 +30,47 @@ document.body.appendChild(gameField);
 gameField.style.display = 'grid';
 gameField.style.gridTemplateColumns = `repeat(${FIELD_SIZE}, 40px)`;
 gameField.style.gap = '2px';
-gameField.style.marginTop = '10px';
-gameField.style.border = '1px solid black';
+gameField.style.marginTop = '20px';
+gameField.style.border = '2px solid black';
 gameField.style.padding = '10px';
-gameField.style.backgroundColor = '#ddd';
+gameField.style.backgroundColor = '#bbb';
+
+const buttonContainer = document.createElement('div');
+buttonContainer.style.display = 'flex';
+buttonContainer.style.gap = '10px';
+buttonContainer.style.marginTop = '10px';
+document.body.appendChild(buttonContainer);
 
 const restartButton = document.createElement('button');
 restartButton.textContent = 'Новая игра';
-document.body.appendChild(restartButton);
+restartButton.style.padding = '10px';
+restartButton.style.fontSize = '16px';
+restartButton.style.cursor = 'pointer';
+buttonContainer.appendChild(restartButton);
 restartButton.addEventListener('click', startGame);
-
-const scoreDiv = document.createElement('div');
-scoreDiv.id = 'score';
-scoreDiv.style.position = 'absolute';
-scoreDiv.style.top = '10px';
-scoreDiv.style.left = '10px';
-scoreDiv.style.fontSize = '20px';
-scoreDiv.style.fontWeight = 'bold';
-document.body.appendChild(scoreDiv);
 
 const leaderboardButton = document.createElement('button');
 leaderboardButton.textContent = 'Рейтинг';
-document.body.appendChild(leaderboardButton);
+leaderboardButton.style.padding = '10px';
+leaderboardButton.style.fontSize = '16px';
+leaderboardButton.style.cursor = 'pointer';
+buttonContainer.appendChild(leaderboardButton);
 leaderboardButton.addEventListener('click', showLeaderboard);
+
+const scoreDiv = document.createElement('div');
+scoreDiv.id = 'score';
+scoreDiv.style.fontSize = '20px';
+scoreDiv.style.fontWeight = 'bold';
+scoreDiv.style.marginTop = '10px';
+document.body.appendChild(scoreDiv);
 
 const leaderboardDiv = document.createElement('div');
 leaderboardDiv.id = 'leaderboard';
 leaderboardDiv.style.display = 'none';
+leaderboardDiv.style.marginTop = '20px';
+leaderboardDiv.style.backgroundColor = '#fff';
+leaderboardDiv.style.padding = '10px';
+leaderboardDiv.style.border = '1px solid black';
 document.body.appendChild(leaderboardDiv);
 
 window.Telegram.WebApp.ready();
@@ -103,6 +117,7 @@ function renderField() {
             cell.style.alignItems = 'center';
             cell.style.justifyContent = 'center';
             cell.style.backgroundColor = '#fff';
+            cell.style.fontSize = '18px';
             
             if (revealed[i][j]) {
                 cell.style.backgroundColor = '#ccc';
@@ -121,6 +136,7 @@ function openCell(x, y) {
     revealed[x][y] = true;
     if (field[x][y] === '💣') {
         gameOver = true;
+        revealAllBombs();
         alert('Вы проиграли!');
         saveScore();
     } else {
@@ -128,6 +144,17 @@ function openCell(x, y) {
         renderField();
         saveScore();
     }
+}
+
+function revealAllBombs() {
+    for (let i = 0; i < FIELD_SIZE; i++) {
+        for (let j = 0; j < FIELD_SIZE; j++) {
+            if (field[i][j] === '💣') {
+                revealed[i][j] = true;
+            }
+        }
+    }
+    renderField();
 }
 
 function startGame() {
@@ -148,14 +175,14 @@ function saveScore() {
 
 function showLeaderboard() {
     get(ref(db, 'players')).then(snapshot => {
+        leaderboardDiv.innerHTML = '<h3>Рейтинг игроков</h3>';
         if (snapshot.exists()) {
             const players = snapshot.val();
-            leaderboardDiv.innerHTML = '<h3>Рейтинг игроков</h3>';
             Object.entries(players).sort((a, b) => b[1].score - a[1].score).forEach(([name, data]) => {
                 leaderboardDiv.innerHTML += `<p>${name}: ${data.score}</p>`;
             });
-            leaderboardDiv.style.display = 'block';
         }
+        leaderboardDiv.style.display = 'block';
     });
 }
 
