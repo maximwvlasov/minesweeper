@@ -133,7 +133,7 @@
         // Делаем db глобальным для script.js
         window.db = db;
 
-        // Загружаем основной скрипт
+        // Загружаем основной скрипт после инициализации
         document.addEventListener('DOMContentLoaded', () => {
             const script = document.createElement('script');
             script.src = 'script.js';
