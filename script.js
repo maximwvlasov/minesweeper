@@ -24,6 +24,18 @@ let gameOver = false;
 let score = 0;
 
 const gameField = document.getElementById('game-field');
+gameField.style.display = 'grid';
+gameField.style.gridTemplateColumns = `repeat(${FIELD_SIZE}, 40px)`;
+gameField.style.gap = '2px';
+
+gameField.style.marginTop = '10px';
+
+gameField.style.border = '1px solid black';
+
+gameField.style.padding = '10px';
+
+gameField.style.backgroundColor = '#ddd';
+
 const restartButton = document.getElementById('restart');
 const statusDiv = document.getElementById('status');
 const scoreDiv = document.createElement('div');
@@ -75,6 +87,38 @@ leaderboardButton.addEventListener('click', async () => {
         }
     });
 });
+
+function renderField() {
+    gameField.innerHTML = '';
+    for (let i = 0; i < FIELD_SIZE; i++) {
+        for (let j = 0; j < FIELD_SIZE; j++) {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.style.width = '40px';
+            cell.style.height = '40px';
+            cell.style.border = '1px solid black';
+            cell.style.display = 'flex';
+            cell.style.alignItems = 'center';
+            cell.style.justifyContent = 'center';
+            cell.style.backgroundColor = '#fff';
+            
+            if (revealed[i][j]) {
+                cell.style.backgroundColor = '#ccc';
+                cell.textContent = field[i][j] === 0 ? '' : field[i][j];
+            }
+            cell.addEventListener('click', () => openCell(i, j));
+            gameField.appendChild(cell);
+        }
+    }
+}
+
+function openCell(x, y) {
+    if (gameOver || revealed[x][y]) return;
+    
+    revealed[x][y] = true;
+    
+    renderField();
+}
 
 function startGame() {
     gameOver = false;
