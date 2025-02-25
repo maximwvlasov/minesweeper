@@ -98,14 +98,14 @@ leaderboardDiv.style.cssText = `
 `;
 document.body.appendChild(leaderboardDiv);
 
-// Проверка и инициализация Telegram WebApp (опционально для локального тестирования)
+// Проверка и инициализация Telegram WebApp
 try {
     if (window.Telegram && window.Telegram.WebApp) {
         window.Telegram.WebApp.ready();
         window.Telegram.WebApp.expand();
-        console.log("Telegram WebApp инициализирован");
+        console.log("Telegram WebApp инициализирован, данные пользователя:", window.Telegram.WebApp.initDataUnsafe);
     } else {
-        console.log("Telegram WebApp не найден, работаем в режиме теста");
+        console.warn("Telegram WebApp не найден. Работаем в тестовом режиме.");
     }
 } catch (error) {
     console.warn("Ошибка при инициализации Telegram WebApp:", error);
@@ -113,16 +113,17 @@ try {
 
 // Функция получения информации о пользователе
 function getUserInfo() {
-    if (window.Telegram && window.Telegram.WebApp.initDataUnsafe?.user) {
+    if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe?.user) {
         const user = window.Telegram.WebApp.initDataUnsafe.user;
         return {
-            id: user.id || 'anonymous_' + Math.random().toString(36).substr(2, 9),
-            username: user.username || user.first_name || 'Аноним'
+            id: String(user.id), // Уникальный ID пользователя из Telegram
+            username: user.username || user.first_name || 'Безымянный' // Используем username или first_name
         };
     } else {
+        console.warn("Telegram WebApp не инициализирован. Используется тестовый режим.");
         return {
-            id: 'anonymous_' + Math.random().toString(36).substr(2, 9),
-            username: 'Аноним'
+            id: 'test_user_' + Date.now(), // Временный ID для тестов
+            username: 'Тестовый игрок'
         };
     }
 }
@@ -260,8 +261,8 @@ function saveScore() {
     get(userRef).then(snapshot => {
         let currentScore = snapshot.exists() ? snapshot.val().totalScore || 0 : 0;
         update(userRef, {
-            username: user.username,
-            totalScore: currentScore + score
+            username: user.username, // Обновляем имя на случай изменений
+            totalScore: currentScore + score // Суммируем текущий счёт с новым
         }).then(() => {
             console.log("Счёт успешно сохранён для пользователя:", user.id);
         }).catch(error => console.error("Ошибка сохранения счёта:", error));
