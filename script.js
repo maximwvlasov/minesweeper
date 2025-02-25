@@ -1,8 +1,8 @@
-// Импортируем Firebase через CDN (работает в браузере)
+// Импортируем Firebase
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getDatabase, ref, set, get, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-// Конфигурация Firebase для твоего проекта
+// Конфигурация Firebase
 const firebaseConfig = {
     apiKey: "AIzaSyCgxw8v14uSh924FW0ZoPFW8vXbltkhv9s",
     authDomain: "minesweeperbot-26c18.firebaseapp.com",
@@ -27,6 +27,10 @@ let gameOver = false;
 let score = 0;
 
 // Создаём игровое поле
+document.addEventListener('DOMContentLoaded', () => {
+    startGame();
+});
+
 const gameField = document.createElement('div');
 gameField.id = 'game-field';
 document.body.appendChild(gameField);
@@ -42,17 +46,17 @@ gameField.style.cssText = `
     width: fit-content;
 `;
 
-// Создаём контейнер для кнопок
+// Контейнер для кнопок
 const buttonContainer = document.createElement('div');
 buttonContainer.style.cssText = `
     display: flex;
     justify-content: center;
     gap: 15px;
-    margin: 20px 0;
+    padding: 20px 0;
 `;
 document.body.appendChild(buttonContainer);
 
-// Функция для создания кнопки с отладкой
+// Функция создания кнопки
 const createButton = (text, onClick) => {
     const button = document.createElement('button');
     button.textContent = text;
@@ -68,19 +72,15 @@ const createButton = (text, onClick) => {
     `;
     button.addEventListener('mouseover', () => button.style.background = '#218838');
     button.addEventListener('mouseout', () => button.style.background = '#28a745');
-    button.addEventListener('click', () => {
-        console.log(`Кнопка "${text}" нажата`);
-        onClick();
-    });
+    button.addEventListener('click', onClick);
     buttonContainer.appendChild(button);
     return button;
 };
 
-// Создаём кнопки
 createButton('Новая игра', startGame);
 createButton('Рейтинг', showLeaderboard);
 
-// Создаём элемент для отображения счёта
+// Элементы интерфейса
 const scoreDiv = document.createElement('div');
 scoreDiv.id = 'score';
 scoreDiv.style.cssText = `
@@ -92,7 +92,6 @@ scoreDiv.style.cssText = `
 `;
 document.body.appendChild(scoreDiv);
 
-// Создаём элемент для отображения рейтинга
 const leaderboardDiv = document.createElement('div');
 leaderboardDiv.id = 'leaderboard';
 leaderboardDiv.style.cssText = `
@@ -109,38 +108,27 @@ leaderboardDiv.style.cssText = `
 `;
 document.body.appendChild(leaderboardDiv);
 
-// Проверка и инициализация Telegram WebApp
-try {
-    if (window.Telegram && window.Telegram.WebApp) {
-        window.Telegram.WebApp.ready();
-        window.Telegram.WebApp.expand();
-        console.log("Telegram WebApp инициализирован");
-    } else {
-        console.log("Telegram WebApp не найден, работаем в тестовом режиме");
-    }
-} catch (error) {
-    console.warn("Ошибка при инициализации Telegram WebApp:", error);
-}
-
 // Функция получения информации о пользователе
 function getUserInfo() {
-    if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe?.user) {
+    if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
         const user = window.Telegram.WebApp.initDataUnsafe.user;
-        return {
-            id: user.id || 'anonymous_' + Math.random().toString(36).substr(2, 9),
-            username: user.username || user.first_name || 'Аноним'
-        };
-    } else {
-        return {
-            id: 'anonymous_' + Math.random().toString(36).substr(2, 9),
-            username: 'Аноним'
-        };
+        return { id: user.id, username: user.username || user.first_name || 'Аноним' };
     }
+    return { id: 'anonymous_' + Math.random().toString(36).substr(2,9), username: 'Аноним' };
 }
 
-// Функция создания игрового поля с минами
+// Функция начала новой игры
+function startGame() {
+    console.log("Новая игра началась!");
+    gameOver = false;
+    score = 0;
+    createField();
+    renderField();
+    leaderboardDiv.style.display = 'none';
+}
+
+// Функция создания игрового поля
 function createField() {
-    console.log("Создаём новое поле...");
     field = Array(FIELD_SIZE).fill().map(() => Array(FIELD_SIZE).fill(0));
     revealed = Array(FIELD_SIZE).fill().map(() => Array(FIELD_SIZE).fill(false));
     
@@ -151,22 +139,12 @@ function createField() {
         if (field[x][y] !== '💣') {
             field[x][y] = '💣';
             mines++;
-            for (let dx = -1; dx <= 1; dx++) {
-                for (let dy = -1; dy <= 1; dy++) {
-                    const newX = x + dx;
-                    const newY = y + dy;
-                    if (newX >= 0 && newX < FIELD_SIZE && newY >= 0 && newY < FIELD_SIZE && field[newX][newY] !== '💣') {
-                        field[newX][newY]++;
-                    }
-                }
-            }
         }
     }
 }
 
-// Функция отрисовки игрового поля
+// Функция отображения игрового поля
 function renderField() {
-    console.log("Отрисовываем поле...");
     gameField.innerHTML = '';
     for (let i = 0; i < FIELD_SIZE; i++) {
         for (let j = 0; j < FIELD_SIZE; j++) {
@@ -183,21 +161,13 @@ function renderField() {
                 background: ${revealed[i][j] ? '#d9d9d9' : '#fff'};
                 font-size: 20px;
                 cursor: ${gameOver ? 'default' : 'pointer'};
-                transition: background 0.2s;
             `;
             if (revealed[i][j]) {
                 cell.textContent = field[i][j] === 0 ? '' : field[i][j];
                 if (field[i][j] === '💣') {
                     cell.style.background = '#ff4d4d';
-                    cell.textContent = '💣';
                 }
             }
-            cell.addEventListener('mouseover', () => {
-                if (!revealed[i][j] && !gameOver) cell.style.background = '#f0f0f0';
-            });
-            cell.addEventListener('mouseout', () => {
-                if (!revealed[i][j] && !gameOver) cell.style.background = '#fff';
-            });
             cell.addEventListener('click', () => openCell(i, j));
             gameField.appendChild(cell);
         }
@@ -205,121 +175,7 @@ function renderField() {
     updateScore();
 }
 
-// Функция открытия ячейки
-function openCell(x, y) {
-    if (gameOver || revealed[x][y]) return;
-
-    revealed[x][y] = true;
-    if (field[x][y] === '💣') {
-        gameOver = true;
-        alert(`Игра окончена! Ваш счёт: ${score}`);
-        saveScore();
-        revealAll();
-    } else {
-        score += POINTS_PER_CELL;
-        if (field[x][y] === 0) {
-            for (let dx = -1; dx <= 1; dx++) {
-                for (let dy = -1; dy <= 1; dy++) {
-                    const newX = x + dx;
-                    const newY = y + dy;
-                    if (newX >= 0 && newX < FIELD_SIZE && newY >= 0 && newY < FIELD_SIZE) {
-                        openCell(newX, newY);
-                    }
-                }
-            }
-        }
-        renderField();
-        checkWin();
-    }
-}
-
-// Функция показа всех мин
-function revealAll() {
-    for (let i = 0; i < FIELD_SIZE; i++) {
-        for (let j = 0; j < FIELD_SIZE; j++) {
-            revealed[i][j] = true;
-        }
-    }
-    renderField();
-}
-
-// Функция проверки победы
-function checkWin() {
-    let unrevealed = 0;
-    for (let i = 0; i < FIELD_SIZE; i++) {
-        for (let j = 0; j < FIELD_SIZE; j++) {
-            if (!revealed[i][j] && field[i][j] !== '💣') unrevealed++;
-        }
-    }
-    if (unrevealed === 0) {
-        gameOver = true;
-        alert(`Победа! Ваш счёт: ${score}`);
-        saveScore();
-    }
-}
-
-// Функция обновления счёта на экране
+// Функция обновления счёта
 function updateScore() {
     scoreDiv.textContent = `Счёт: ${score}`;
 }
-
-// Функция сохранения счёта в Firebase
-function saveScore() {
-    const user = getUserInfo();
-    const userRef = ref(db, `players/${user.id}`);
-    console.log("Сохранение счёта для пользователя:", user, "с счётом:", score);
-    get(userRef).then(snapshot => {
-        let currentScore = snapshot.exists() ? snapshot.val().totalScore || 0 : 0;
-        update(userRef, {
-            username: user.username,
-            totalScore: currentScore + score
-        }).then(() => {
-            console.log("Счёт успешно сохранён для пользователя:", user.id);
-        }).catch(error => console.error("Ошибка сохранения счёта:", error));
-    }).catch(error => console.error("Ошибка загрузки счёта:", error));
-}
-
-// Функция показа рейтинга
-function showLeaderboard() {
-    console.log("Загрузка рейтинга...");
-    get(ref(db, 'players')).then(snapshot => {
-        leaderboardDiv.innerHTML = '<h3 style="color: #333;">Рейтинг игроков</h3>';
-        if (snapshot.exists()) {
-            const players = snapshot.val();
-            const sortedPlayers = Object.entries(players)
-                .sort((a, b) => b[1].totalScore - a[1].totalScore)
-                .slice(0, 10);
-            if (sortedPlayers.length > 0) {
-                sortedPlayers.forEach(([id, data]) => {
-                    leaderboardDiv.innerHTML += `<p>${data.username}: ${data.totalScore}</p>`;
-                });
-            } else {
-                leaderboardDiv.innerHTML += '<p>Пока нет игроков</p>';
-            }
-        } else {
-            leaderboardDiv.innerHTML += '<p>Пока нет игроков</p>';
-        }
-        leaderboardDiv.style.display = 'block';
-        const closeButton = createButton('Закрыть', () => leaderboardDiv.style.display = 'none');
-        leaderboardDiv.appendChild(closeButton);
-    }).catch(error => {
-        console.error("Ошибка загрузки рейтинга:", error);
-        leaderboardDiv.innerHTML = '<p>Ошибка загрузки рейтинга</p>';
-        leaderboardDiv.style.display = 'block';
-    });
-}
-
-// Функция начала новой игры
-function startGame() {
-    console.log("Новая игра началась!");
-    gameOver = false;
-    score = 0;
-    createField();
-    renderField();
-    leaderboardDiv.style.display = 'none';
-}
-
-// Убедимся, что код запускается после загрузки DOM
-document.addEventListener('DOMContentLoaded', () => {
-    startGame();
-});
