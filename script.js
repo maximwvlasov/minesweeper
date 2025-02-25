@@ -1,3 +1,5 @@
+// Исправленный script.js для Telegram Mini App
+
 // Ждём загрузки Telegram WebApp
 function waitForTelegram() {
     return new Promise((resolve) => {
@@ -22,10 +24,12 @@ waitForTelegram().then(() => {
     const taskbar = document.getElementById('taskbar');
     const backButton = document.getElementById('back-button');
 
-    // Убедимся, что taskbar виден, а контейнеры скрыты
+    // Убедимся, что taskbar и startButton видны, а остальные скрыты
     taskbar.style.display = 'flex';
-    gameContainer.classList.remove('active');
-    leaderboardContainer.classList.remove('active');
+    startMenu.style.display = 'none';
+    gameContainer.style.display = 'none';
+    leaderboardContainer.style.display = 'none';
+    backButton.style.display = 'none';
 
     // Обработчик для кнопки "Start"
     startButton.addEventListener('click', () => {
@@ -35,16 +39,21 @@ waitForTelegram().then(() => {
     // Обработчик для кнопки "Сапёр" в меню
     minesweeperLaunch.addEventListener('click', () => {
         startMenu.style.display = 'none';
-        gameContainer.classList.add('active');
-        leaderboardContainer.classList.remove('active');
+        gameContainer.style.display = 'block';
+        leaderboardContainer.style.display = 'none';
+        backButton.style.display = 'block';
     });
 
     // Обработчик для кнопки "Назад"
     backButton.addEventListener('click', () => {
-        gameContainer.classList.remove('active');
-        leaderboardContainer.classList.remove('active');
+        gameContainer.style.display = 'none';
+        leaderboardContainer.style.display = 'none';
         startMenu.style.display = 'none';
+        backButton.style.display = 'none';
     });
+
+    console.log("Исправленный скрипт загружен.");
+});
 
     console.log("Исправленный скрипт загружен.");
 });
