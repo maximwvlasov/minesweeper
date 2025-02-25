@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getDatabase, ref, set, get, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyCgxw8v14uSh924FW0ZoPFW8vXbltkhv9s",
@@ -86,20 +86,25 @@ leaderboardDiv.style.cssText = `
     display: none;
     margin: 20px auto;
     padding: 15px;
-    background: #fff;
+    background: #f5f5f5; /* Светло-серый фон вместо чёрного */
     border-radius: 10px;
     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
     width: 300px;
     max-height: 400px;
     overflow-y: auto;
+    color: #333; /* Тёмный текст для читаемости */
 `;
 document.body.appendChild(leaderboardDiv);
 
 window.Telegram.WebApp.ready();
 window.Telegram.WebApp.expand();
 
-function getUserName() {
-    return window.Telegram.WebApp.initDataUnsafe?.user?.first_name || 'Аноним';
+function getUserInfo() {
+    const user = window.Telegram.WebApp.initDataUnsafe?.user;
+    return {
+        username: user?.username || user?.first_name || 'Аноним', // Используем username, если есть, иначе имя
+        id: user?.id // ID пользователя для уникальности
+    };
 }
 
 function createField() {
@@ -220,21 +225,27 @@ function updateScore() {
 }
 
 function saveScore() {
-    const userName = getUserName();
-    set(ref(db, `players/${userName}`), { score })
-        .catch(error => console.error("Ошибка сохранения счёта:", error));
+    const user = getUserInfo();
+    const userRef = ref(db, `players/${user.id}`); // Используем ID для уникальности
+    get(userRef).then(snapshot => {
+        let currentScore = snapshot.exists() ? snapshot.val().totalScore || 0 : 0;
+        update(userRef, {
+            username: user.username,
+            totalScore: currentScore + score // Суммируем счёт
+        }).catch(error => console.error("Ошибка сохранения счёта:", error));
+    }).catch(error => console.error("Ошибка загрузки счёта:", error));
 }
 
 function showLeaderboard() {
     get(ref(db, 'players')).then(snapshot => {
-        leaderboardDiv.innerHTML = '<h3>Рейтинг игроков</h3>';
+        leaderboardDiv.innerHTML = '<h3 style="color: #333;">Рейтинг игроков</h3>';
         if (snapshot.exists()) {
             const players = snapshot.val();
             const sortedPlayers = Object.entries(players)
-                .sort((a, b) => b[1].score - a[1].score)
+                .sort((a, b) => b[1].totalScore - a[1].totalScore)
                 .slice(0, 10); // Топ-10 игроков
-            sortedPlayers.forEach(([name, data]) => {
-                leaderboardDiv.innerHTML += `<p>${name}: ${data.score}</p>`;
+            sortedPlayers.forEach(([id, data]) => {
+                leaderboardDiv.innerHTML += `<p>${data.username}: ${data.totalScore}</p>`;
             });
         } else {
             leaderboardDiv.innerHTML += '<p>Пока нет игроков</p>';
@@ -251,7 +262,7 @@ function showLeaderboard() {
 
 function startGame() {
     gameOver = false;
-    score = 0;
+    score = 0; // Сбрасываем счёт для текущей игры, но сохраняем общий в Firebase
     createField();
     renderField();
     leaderboardDiv.style.display = 'none';
