@@ -59,9 +59,9 @@ waitForTelegram().then(() => {
         return;
     }
 
-    // Активируем панель задач и контейнер игры по умолчанию
-    document.getElementById('taskbar').style.display = 'flex'; // Убедимся, что панель задач видна
-    document.getElementById('game-container').classList.add('active');
+    // Активируем только панель задач и скрываем всё остальное по умолчанию
+    document.getElementById('taskbar').style.display = 'flex';
+    document.getElementById('game-container').classList.remove('active');
     document.getElementById('leaderboard-container').classList.remove('active');
 
     // Проверка доступности Firebase
@@ -79,7 +79,7 @@ waitForTelegram().then(() => {
         return button;
     }
 
-    // Создаём кнопки в игре
+    // Создаём кнопки в игре (будут видны только после запуска игры)
     createButton('Новая игра', startGame);
     createButton('Рейтинг', () => showLeaderboard(true));
 
@@ -93,6 +93,7 @@ waitForTelegram().then(() => {
         document.getElementById('game-container').classList.add('active');
         document.getElementById('leaderboard-container').classList.remove('active');
         startGame();
+        console.log("Запуск игры 'Сапёр'...");
     });
 
     backButton.addEventListener('click', () => {
