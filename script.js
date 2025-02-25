@@ -22,11 +22,9 @@ let revealed = [];
 let gameOver = false;
 let score = 0;
 
-// Инициализация элементов UI
 const gameField = document.createElement('div');
 gameField.id = 'game-field';
 document.body.appendChild(gameField);
-
 gameField.style.display = 'grid';
 gameField.style.gridTemplateColumns = `repeat(${FIELD_SIZE}, 40px)`;
 gameField.style.gap = '2px';
@@ -36,13 +34,9 @@ gameField.style.padding = '10px';
 gameField.style.backgroundColor = '#ddd';
 
 const restartButton = document.createElement('button');
-restartButton.id = 'restart';
-restartButton.textContent = 'Рестарт';
+restartButton.textContent = 'Новая игра';
 document.body.appendChild(restartButton);
-
-const statusDiv = document.createElement('div');
-statusDiv.id = 'status';
-document.body.appendChild(statusDiv);
+restartButton.addEventListener('click', startGame);
 
 const scoreDiv = document.createElement('div');
 scoreDiv.id = 'score';
@@ -54,19 +48,15 @@ scoreDiv.style.fontWeight = 'bold';
 document.body.appendChild(scoreDiv);
 
 const leaderboardButton = document.createElement('button');
-leaderboardButton.textContent = 'Показать рейтинг';
-leaderboardButton.style.marginTop = '10px';
-leaderboardButton.style.display = 'block';
+leaderboardButton.textContent = 'Рейтинг';
 document.body.appendChild(leaderboardButton);
+leaderboardButton.addEventListener('click', showLeaderboard);
 
 const leaderboardDiv = document.createElement('div');
 leaderboardDiv.id = 'leaderboard';
-leaderboardDiv.style.marginTop = '10px';
-leaderboardDiv.style.fontSize = '16px';
 leaderboardDiv.style.display = 'none';
 document.body.appendChild(leaderboardDiv);
 
-// Telegram Web App инициализация
 window.Telegram.WebApp.ready();
 window.Telegram.WebApp.expand();
 
@@ -127,104 +117,44 @@ function openCell(x, y) {
     if (gameOver || revealed[x][y]) return;
     
     revealed[x][y] = true;
-    
     if (field[x][y] === '💣') {
         gameOver = true;
-        statusDiv.textContent = 'Вы проиграли!';
-        revealAllMines();
+        alert('Вы проиграли!');
         saveScore();
     } else {
         score += POINTS_PER_CELL;
-        if (field[x][y] === 0) {
-            for (let dx = -1; dx <= 1; dx++) {
-                for (let dy = -1; dy <= 1; dy++) {
-                    const newX = x + dx;
-                    const newY = y + dy;
-                    if (newX >= 0 && newX < FIELD_SIZE && newY >= 0 && newY < FIELD_SIZE) {
-                        openCell(newX, newY);
-                    }
-                }
-            }
-        }
         renderField();
         saveScore();
     }
-    
-    // Проверка победы
-    let unrevealedCount = 0;
-    for (let i = 0; i < FIELD_SIZE; i++) {
-        for (let j = 0; j < FIELD_SIZE; j++) {
-            if (!revealed[i][j]) unrevealedCount++;
-        }
-    }
-    if (unrevealedCount === MINES_COUNT) {
-        gameOver = true;
-        statusDiv.textContent = 'Вы победили!';
-        saveScore();
-    }
 }
 
-function revealAllMines() {
-    for (let i = 0; i < FIELD_SIZE; i++) {
-        for (let j = 0; j < FIELD_SIZE; j++) {
-            if (field[i][j] === '💣') {
-                revealed[i][j] = true;
-            }
-        }
-    }
+function startGame() {
+    gameOver = false;
+    score = 0;
+    createField();
     renderField();
-}
-
-function saveScore() {
-    const userName = getUserName();
-    set(ref(db, 'scores/' + userName), {
-        score: score,
-        timestamp: Date.now()
-    }).then(() => {
-        updateScore();
-    }).catch((error) => {
-        console.error("Ошибка сохранения очков:", error);
-    });
 }
 
 function updateScore() {
     scoreDiv.textContent = `Очки: ${score}`;
 }
 
-function startGame() {
-    gameOver = false;
-    statusDiv.textContent = '';
-    score = 0;
-    createField();
-    renderField();
+function saveScore() {
+    const userName = getUserName();
+    set(ref(db, 'players/' + userName), { score });
 }
 
-restartButton.addEventListener('click', startGame);
-
-leaderboardButton.addEventListener('click', () => {
-    leaderboardDiv.style.display = leaderboardDiv.style.display === 'none' ? 'block' : 'none';
-    if (leaderboardDiv.style.display === 'block') {
-        get(ref(db, 'scores')).then((snapshot) => {
-            const scores = [];
-            snapshot.forEach((child) => {
-                scores.push({ name: child.key, ...child.val() });
+function showLeaderboard() {
+    get(ref(db, 'players')).then(snapshot => {
+        if (snapshot.exists()) {
+            const players = snapshot.val();
+            leaderboardDiv.innerHTML = '<h3>Рейтинг игроков</h3>';
+            Object.entries(players).sort((a, b) => b[1].score - a[1].score).forEach(([name, data]) => {
+                leaderboardDiv.innerHTML += `<p>${name}: ${data.score}</p>`;
             });
-            scores.sort((a, b) => b.score - a.score);
-            leaderboardDiv.innerHTML = scores
-                .slice(0, 10)
-                .map((s, i) => `${i + 1}. ${s.name}: ${s.score}`)
-                .join('<br>');
-        }).catch((error) => {
-            console.error("Ошибка загрузки рейтинга:", error);
-        });
-    }
-});
+            leaderboardDiv.style.display = 'block';
+        }
+    });
+}
 
-// Инициализация Telegram Main Button
-window.Telegram.WebApp.MainButton
-    .setText('Перезапустить')
-    .show()
-    .onClick(startGame);
-
-// Старт игры
 startGame();
