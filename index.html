@@ -3,109 +3,212 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Сапёр</title>
+    <title>Сапёр (Windows XP Style)</title>
     <style>
         body {
             margin: 0;
             padding: 0;
             font-family: Arial, sans-serif;
-            text-align: center;
-            background-color: #f0f0f0;
+            background: linear-gradient(to bottom, #008080, #000080); /* Зелёно-синий градиент Windows XP */
             min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            overflow: hidden;
+        }
+
+        #taskbar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 40px;
+            background: #C0C0C0; /* Серебристый цвет панели задач Windows XP */
+            border-top: 2px solid #808080;
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.5);
+        }
+
+        #start-button {
+            background: #008080; /* Цвет кнопки Start Windows XP */
+            border: 2px outset #C0C0C0;
+            padding: 5px 10px;
+            margin-right: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            color: white;
+            font-size: 14px;
+        }
+
+        #start-button:hover {
+            background: #006666;
+            border: 2px inset #C0C0C0;
+        }
+
+        #start-menu {
+            display: none;
+            position: fixed;
+            bottom: 40px;
+            left: 10px;
+            background: #C0C0C0;
+            border: 2px solid #808080;
+            padding: 5px;
+            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+        }
+
+        .menu-item {
+            padding: 5px 15px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .menu-item:hover {
+            background: #A0A0A0;
+        }
+
+        #game-container, #leaderboard-container {
+            display: none;
+            width: 100%;
+            max-width: 400px;
+            padding: 20px;
+            background: #C0C0C0;
+            border: 2px solid #808080;
+            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.5);
+            margin-top: 20px;
+        }
+
+        #game-container.active, #leaderboard-container.active {
+            display: block;
+        }
+
+        #gameField {
+            display: grid;
+            gap: 2px;
+            margin: 20px auto;
+            padding: 5px;
+            background: #C0C0C0;
+            border: 2px solid #808080;
+            width: 320px;
+            justify-content: center;
+        }
+
+        .cell {
+            width: 32px;
+            height: 32px;
+            background: #C0C0C0;
+            border: 2px outset #FFFFFF;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            cursor: pointer;
+            font-family: "MS Sans Serif", Arial, sans-serif;
+        }
+
+        .cell.revealed {
+            background: #FFFFFF;
+            border: 2px inset #808080;
+        }
+
+        .cell.bomb {
+            background: #FF0000;
+            color: white;
+            border: 2px inset #808080;
+        }
+
+        button {
+            padding: 8px 16px;
+            font-size: 14px;
+            cursor: pointer;
+            border: 2px outset #FFFFFF;
+            background: #008080;
+            color: white;
+            font-family: "MS Sans Serif", Arial, sans-serif;
+        }
+
+        button:hover {
+            background: #006666;
+            border: 2px inset #FFFFFF;
+        }
+
+        #score, #leaderboard {
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+            margin: 10px 0;
+            color: #000000;
+            font-family: "MS Sans Serif", Arial, sans-serif;
+        }
+
+        #leaderboard-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, #008080, #000080);
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
         }
-        #game-container {
+
+        #leaderboard-header {
+            display: flex;
+            justify-content: space-between;
             width: 100%;
             max-width: 400px;
-            padding: 15px;
-            box-sizing: border-box;
+            padding: 10px;
+            background: #C0C0C0;
+            border: 2px solid #808080;
+            margin-bottom: 20px;
         }
-        #gameField {
-            display: grid;
-            gap: 4px;
-            margin: 20px auto;
-            padding: 15px;
-            background: #e0e0e0;
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-            width: 320px;
-            justify-content: center;
-        }
-        .cell {
-            width: 40px;
-            height: 40px;
-            border: solid 2px #999;
-            border-radius: 5px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: #fff;
-            font-size: 20px;
+
+        #back-button {
+            background: #008080;
+            border: 2px outset #C0C0C0;
+            padding: 5px 10px;
             cursor: pointer;
-            transition: background 0.2s;
-        }
-        .cell.revealed {
-            background: #d9d9d9;
-        }
-        .cell.bomb {
-            background: #ff4d4d;
-            color: white;
-        }
-        button {
-            padding: 12px 24px;
-            font-size: 16px;
-            cursor: pointer;
-            border: none;
-            border-radius: 8px;
-            background: #28a745;
-            color: white;
-            transition: background 0.3s;
-            margin: 5px;
-        }
-        button:hover {
-            background: #218838;
-        }
-        #score, #leaderboard {
-            text-align: center;
-            font-size: 24px;
             font-weight: bold;
-            margin: 10px 0;
-            color: #333;
+            color: white;
+            font-size: 14px;
+            font-family: "MS Sans Serif", Arial, sans-serif;
         }
-        #leaderboard {
-            display: none;
-            margin: 20px auto;
-            padding: 15px;
-            background: #f5f5f5;
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-            width: 90%;
-            max-width: 300px;
-            max-height: 400px;
-            overflow-y: auto;
-        }
-        /* Адаптация для Telegram WebApp */
-        @media (max-width: 600px) {
-            #gameField {
-                width: 280px;
-            }
-            .cell {
-                width: 35px;
-                height: 35px;
-                font-size: 18px;
-            }
+
+        #back-button:hover {
+            background: #006666;
+            border: 2px inset #C0C0C0;
         }
     </style>
 </head>
 <body>
+    <div id="taskbar">
+        <button id="start-button">Start</button>
+    </div>
+
+    <div id="start-menu">
+        <div class="menu-item" id="player-info">Игрок: <span id="player-name"></span> <img id="player-avatar" src="" alt="Avatar" style="width: 20px; height: 20px; vertical-align: middle;"></div>
+        <div class="menu-item" id="minesweeper-launch">Сапёр <span style="font-size: 12px;">💣</span></div>
+        <div class="menu-item" id="leaderboard-launch">Рейтинг</div>
+    </div>
+
     <div id="game-container">
         <div id="score">Счёт: 0</div>
         <div id="gameField"></div>
         <div id="buttonContainer"></div>
         <div id="leaderboard"></div>
+    </div>
+
+    <div id="leaderboard-container">
+        <div id="leaderboard-header">
+            <button id="back-button">Назад</button>
+            <div id="player-rank">Место: <span id="player-position"></span>, Очки: <span id="player-total-score"></span>, <span id="player-leaderboard-name"></span></div>
+        </div>
+        <div id="leaderboard-content"></div>
     </div>
 
     <!-- Подключаем Telegram WebApp API -->
