@@ -4,7 +4,8 @@ const POINTS_PER_CELL = 10;
 let field = [];
 let revealed = [];
 let gameOver = false;
-let score = 0;
+let score = localStorage.getItem('score') ? parseInt(localStorage.getItem('score')) : 0;
+let leaderboard = JSON.parse(localStorage.getItem('leaderboard')) || [];
 
 const gameField = document.getElementById('game-field');
 const restartButton = document.getElementById('restart');
@@ -20,8 +21,21 @@ scoreDiv.style.fontSize = '20px';
 scoreDiv.style.fontWeight = 'bold';
 document.body.appendChild(scoreDiv);
 
+// Создаём рейтинг игроков
+const leaderboardDiv = document.createElement('div');
+leaderboardDiv.id = 'leaderboard';
+leaderboardDiv.style.position = 'absolute';
+leaderboardDiv.style.top = '40px';
+leaderboardDiv.style.left = '10px';
+leaderboardDiv.style.fontSize = '16px';
+document.body.appendChild(leaderboardDiv);
+
 window.Telegram.WebApp.ready();
 window.Telegram.WebApp.expand();
+
+function getUserName() {
+    return window.Telegram.WebApp.initDataUnsafe?.user?.username || 'Аноним';
+}
 
 function createField() {
     field = Array(FIELD_SIZE).fill().map(() => Array(FIELD_SIZE).fill(0));
@@ -67,6 +81,7 @@ function renderField() {
         }
     }
     updateScore();
+    updateLeaderboard();
 }
 
 function openCell(x, y) {
@@ -78,8 +93,10 @@ function openCell(x, y) {
         gameOver = true;
         statusDiv.textContent = 'Вы проиграли!';
         revealAll();
+        saveScore();
     } else {
         score += POINTS_PER_CELL; // Начисляем очки
+        localStorage.setItem('score', score);
         renderField();
         checkWin();
     }
@@ -95,6 +112,7 @@ function checkWin() {
     if (closedCells === 0) {
         gameOver = true;
         statusDiv.textContent = 'Вы выиграли!';
+        saveScore();
     }
 }
 
@@ -107,9 +125,19 @@ function updateScore() {
     scoreDiv.textContent = `Очки: ${score}`;
 }
 
+function saveScore() {
+    const username = getUserName();
+    leaderboard.push({ username, score });
+    leaderboard.sort((a, b) => b.score - a.score);
+    localStorage.setItem('leaderboard', JSON.stringify(leaderboard));
+}
+
+function updateLeaderboard() {
+    leaderboardDiv.innerHTML = '<b>Рейтинг:</b><br>' + leaderboard.map(entry => `${entry.username}: ${entry.score}`).join('<br>');
+}
+
 function startGame() {
     gameOver = false;
-    score = 0;
     statusDiv.textContent = '';
     createField();
     renderField();
