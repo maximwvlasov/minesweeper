@@ -32,6 +32,29 @@ function getUserInfo() {
     };
 }
 
+// Функция для получения очков игрока из Firebase
+function getPlayerScore(username) {
+    return new Promise((resolve) => {
+        if (!window.db || !window.firebaseFunctions) {
+            console.error("Firebase не инициализирован!");
+            resolve(0);
+            return;
+        }
+        const { ref, get } = window.firebaseFunctions;
+        const userRef = ref(window.db, `players/${username}`);
+        get(userRef).then(snapshot => {
+            if (snapshot.exists()) {
+                resolve(snapshot.val().totalScore || 0);
+            } else {
+                resolve(0);
+            }
+        }).catch(error => {
+            console.error("Ошибка получения очков:", error);
+            resolve(0);
+        });
+    });
+}
+
 // Настройки игры
 const FIELD_SIZE = 8;
 const MINES_COUNT = 10;
@@ -42,11 +65,14 @@ let gameOver = false;
 let score = 0;
 
 // Элементы DOM
-let gameField, scoreDiv, buttonContainer, leaderboardDiv, startButton, startMenu, playerName, playerAvatar, minesweeperLaunch, leaderboardLaunch, backButton, leaderboardContainer, leaderboardContent, playerPosition, playerTotalScore, playerLeaderboardName;
+let gameField, scoreDiv, buttonContainer, leaderboardDiv, startButton, startMenu, playerName, playerAvatar, minesweeperLaunch, scoreLaunch, backButton, leaderboardContainer, leaderboardContent, playerPosition, playerTotalScore, playerLeaderboardName;
 
 waitForTelegram().then(() => {
+    console.log("Telegram WebApp инициализирован");
+
     // Получаем информацию о пользователе
     const user = getUserInfo();
+    console.log("Информация о пользователе:", user);
 
     // Инициализация DOM элементов
     startButton = document.getElementById('start-button');
@@ -54,7 +80,7 @@ waitForTelegram().then(() => {
     playerName = document.getElementById('player-name');
     playerAvatar = document.getElementById('player-avatar');
     minesweeperLaunch = document.getElementById('minesweeper-launch');
-    leaderboardLaunch = document.getElementById('leaderboard-launch');
+    scoreLaunch = document.getElementById('score-launch');
     gameField = document.getElementById('gameField');
     scoreDiv = document.getElementById('score');
     buttonContainer = document.getElementById('buttonContainer');
@@ -66,6 +92,12 @@ waitForTelegram().then(() => {
     playerTotalScore = document.getElementById('player-total-score');
     playerLeaderboardName = document.getElementById('player-leaderboard-name');
 
+    // Проверка существования элементов
+    if (!startButton || !startMenu || !playerName || !minesweeperLaunch || !scoreLaunch || !gameField || !leaderboardContainer || !backButton) {
+        console.error("Один или несколько DOM-элементов не найдены!");
+        return;
+    }
+
     // Устанавливаем имя и аватар игрока
     playerName.textContent = user.first_name;
     if (user.avatar) {
@@ -73,6 +105,11 @@ waitForTelegram().then(() => {
     } else {
         playerAvatar.style.display = 'none'; // Скрываем, если аватара нет
     }
+
+    // Загружаем и отображаем очки игрока
+    getPlayerScore(user.username).then(totalScore => {
+        document.getElementById('player-total-score').textContent = totalScore;
+    });
 
     // Показываем контейнер игры по умолчанию
     document.getElementById('game-container').classList.add('active');
@@ -108,9 +145,15 @@ waitForTelegram().then(() => {
         startGame();
     });
 
-    leaderboardLaunch.addEventListener('click', () => {
+    scoreLaunch.addEventListener('click', () => {
         startMenu.style.display = 'none';
-        showLeaderboard(true);
+        window.Telegram.WebApp.showPopup({
+            title: 'Ваши очки',
+            message: `Ваши общие очки: ${document.getElementById('player-total-score').textContent}`,
+            buttons: [
+                { id: 'ok', type: 'ok', text: 'OK' }
+            ]
+        });
     });
 
     backButton.addEventListener('click', () => {
@@ -266,6 +309,7 @@ waitForTelegram().then(() => {
                 }).then(() => {
                     console.log("Счёт успешно сохранён для:", userInfo.username);
                     resolve(currentScore + score); // Возвращаем новую сумму очков
+                    document.getElementById('player-total-score').textContent = currentScore + score; // Обновляем очки в меню
                 }).catch(error => {
                     console.error("Ошибка сохранения счёта:", error);
                     resolve(0);
