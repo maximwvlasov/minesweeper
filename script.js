@@ -42,7 +42,7 @@ let gameOver = false;
 let score = 0;
 
 // Элементы DOM
-let gameField, scoreDiv, buttonContainer, leaderboardDiv, startButton, startMenu, playerName, playerAvatar, minesweeperLaunch, leaderboardLaunch, backButton, leaderboardContent, playerPosition, playerTotalScore, playerLeaderboardName;
+let gameField, scoreDiv, buttonContainer, leaderboardDiv, startButton, startMenu, playerName, playerAvatar, minesweeperLaunch, leaderboardLaunch, backButton, leaderboardContainer, leaderboardContent, playerPosition, playerTotalScore, playerLeaderboardName;
 
 waitForTelegram().then(() => {
     // Получаем информацию о пользователе
@@ -258,7 +258,7 @@ waitForTelegram().then(() => {
             const userRef = ref(window.db, `players/${userInfo.username}`);
             get(userRef).then(snapshot => {
                 let currentScore = snapshot.exists() ? snapshot.val().totalScore || 0 : 0;
-                console.log("Текущий счёт в базе:", currentScore);
+                console.log("Текущий счёт в базе:", currentScore, "для пользователя:", userInfo.username);
                 update(userRef, {
                     username: userInfo.username,
                     totalScore: currentScore + score,
