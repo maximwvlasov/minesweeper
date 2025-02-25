@@ -1,6 +1,8 @@
+// Импортируем Firebase
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getDatabase, ref, set, get, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
+// Конфигурация Firebase
 const firebaseConfig = {
     apiKey: "AIzaSyCgxw8v14uSh924FW0ZoPFW8vXbltkhv9s",
     authDomain: "minesweeperbot-26c18.firebaseapp.com",
@@ -11,9 +13,11 @@ const firebaseConfig = {
     appId: "1:464398182383:web:e4f2378178d89bad9fb81a"
 };
 
+// Инициализация Firebase
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
+// Настройки игры
 const FIELD_SIZE = 8;
 const MINES_COUNT = 10;
 const POINTS_PER_CELL = 10;
@@ -22,6 +26,7 @@ let revealed = [];
 let gameOver = false;
 let score = 0;
 
+// Создаём игровое поле
 const gameField = document.createElement('div');
 gameField.id = 'game-field';
 document.body.appendChild(gameField);
@@ -37,6 +42,7 @@ gameField.style.cssText = `
     width: fit-content;
 `;
 
+// Создаём контейнер для кнопок
 const buttonContainer = document.createElement('div');
 buttonContainer.style.cssText = `
     display: flex;
@@ -46,6 +52,7 @@ buttonContainer.style.cssText = `
 `;
 document.body.appendChild(buttonContainer);
 
+// Функция для создания кнопки
 const createButton = (text, onClick) => {
     const button = document.createElement('button');
     button.textContent = text;
@@ -66,9 +73,11 @@ const createButton = (text, onClick) => {
     return button;
 };
 
+// Создаём кнопки "Новая игра" и "Рейтинг"
 createButton('Новая игра', startGame);
 createButton('Рейтинг', showLeaderboard);
 
+// Создаём элемент для отображения счёта
 const scoreDiv = document.createElement('div');
 scoreDiv.id = 'score';
 scoreDiv.style.cssText = `
@@ -80,6 +89,7 @@ scoreDiv.style.cssText = `
 `;
 document.body.appendChild(scoreDiv);
 
+// Создаём элемент для отображения рейтинга
 const leaderboardDiv = document.createElement('div');
 leaderboardDiv.id = 'leaderboard';
 leaderboardDiv.style.cssText = `
@@ -96,18 +106,39 @@ leaderboardDiv.style.cssText = `
 `;
 document.body.appendChild(leaderboardDiv);
 
-window.Telegram.WebApp.ready();
-window.Telegram.WebApp.expand();
-
-function getUserInfo() {
-    const user = window.Telegram.WebApp.initDataUnsafe?.user;
-    console.log("User data from Telegram:", user); // Отладочный лог
-    return {
-        id: user?.id || 'anonymous_' + Math.random().toString(36).substr(2, 9), // Уникальный ID, если Telegram не предоставляет
-        username: user?.username || user?.first_name || 'Аноним'
-    };
+// Проверяем, работает ли Telegram WebApp, и инициализируем его, если доступен
+try {
+    if (window.Telegram && window.Telegram.WebApp) {
+        window.Telegram.WebApp.ready();
+        window.Telegram.WebApp.expand();
+        console.log("Telegram WebApp инициализирован");
+    } else {
+        console.log("Telegram WebApp не найден, работаем в обычном режиме");
+    }
+} catch (error) {
+    console.warn("Ошибка при инициализации Telegram WebApp:", error);
+    // Продолжаем работу без Telegram
 }
 
+// Функция получения информации о пользователе
+function getUserInfo() {
+    // Пробуем получить данные из Telegram, если доступно
+    if (window.Telegram && window.Telegram.WebApp.initDataUnsafe?.user) {
+        const user = window.Telegram.WebApp.initDataUnsafe.user;
+        return {
+            id: user.id || 'anonymous_' + Math.random().toString(36).substr(2, 9), // Уникальный ID, если Telegram не предоставляет
+            username: user.username || user.first_name || 'Аноним'
+        };
+    } else {
+        // Если Telegram недоступен, генерируем временный ID и имя
+        return {
+            id: 'anonymous_' + Math.random().toString(36).substr(2, 9),
+            username: 'Аноним'
+        };
+    }
+}
+
+// Функция создания игрового поля с минами
 function createField() {
     field = Array(FIELD_SIZE).fill().map(() => Array(FIELD_SIZE).fill(0));
     revealed = Array(FIELD_SIZE).fill().map(() => Array(FIELD_SIZE).fill(false));
@@ -132,6 +163,7 @@ function createField() {
     }
 }
 
+// Функция отрисовки игрового поля
 function renderField() {
     gameField.innerHTML = '';
     for (let i = 0; i < FIELD_SIZE; i++) {
@@ -171,6 +203,7 @@ function renderField() {
     updateScore();
 }
 
+// Функция открытия ячейки
 function openCell(x, y) {
     if (gameOver || revealed[x][y]) return;
 
@@ -198,6 +231,7 @@ function openCell(x, y) {
     }
 }
 
+// Функция показа всех мин
 function revealAll() {
     for (let i = 0; i < FIELD_SIZE; i++) {
         for (let j = 0; j < FIELD_SIZE; j++) {
@@ -207,6 +241,7 @@ function revealAll() {
     renderField();
 }
 
+// Функция проверки победы
 function checkWin() {
     let unrevealed = 0;
     for (let i = 0; i < FIELD_SIZE; i++) {
@@ -221,34 +256,37 @@ function checkWin() {
     }
 }
 
+// Функция обновления счёта на экране
 function updateScore() {
     scoreDiv.textContent = `Счёт: ${score}`;
 }
 
+// Функция сохранения счёта в Firebase
 function saveScore() {
     const user = getUserInfo();
     const userRef = ref(db, `players/${user.id}`);
-    console.log("Saving score for user:", user, "with score:", score); // Отладочный лог
+    console.log("Сохранение счёта для пользователя:", user, "с счётом:", score);
     get(userRef).then(snapshot => {
         let currentScore = snapshot.exists() ? snapshot.val().totalScore || 0 : 0;
         update(userRef, {
             username: user.username,
             totalScore: currentScore + score
         }).then(() => {
-            console.log("Score saved successfully for user:", user.id);
+            console.log("Счёт успешно сохранён для пользователя:", user.id);
         }).catch(error => console.error("Ошибка сохранения счёта:", error));
     }).catch(error => console.error("Ошибка загрузки счёта:", error));
 }
 
+// Функция показа рейтинга
 function showLeaderboard() {
-    console.log("Loading leaderboard..."); // Отладочный лог
+    console.log("Загрузка рейтинга...");
     get(ref(db, 'players')).then(snapshot => {
         leaderboardDiv.innerHTML = '<h3 style="color: #333;">Рейтинг игроков</h3>';
         if (snapshot.exists()) {
             const players = snapshot.val();
             const sortedPlayers = Object.entries(players)
-                .sort((a, b) => b[1].totalScore - a[1].totalScore)
-                .slice(0, 10); // Топ-10 игроков
+                .sort((a, b) => b[1].totalScore - a[1].totalScore) // Сортировка по убыванию счёта
+                .slice(0, 10); // Берем топ-10
             if (sortedPlayers.length > 0) {
                 sortedPlayers.forEach(([id, data]) => {
                     leaderboardDiv.innerHTML += `<p>${data.username}: ${data.totalScore}</p>`;
@@ -260,6 +298,7 @@ function showLeaderboard() {
             leaderboardDiv.innerHTML += '<p>Пока нет игроков</p>';
         }
         leaderboardDiv.style.display = 'block';
+        // Добавляем кнопку "Закрыть" для рейтинга
         const closeButton = createButton('Закрыть', () => leaderboardDiv.style.display = 'none');
         leaderboardDiv.appendChild(closeButton);
     }).catch(error => {
@@ -269,6 +308,7 @@ function showLeaderboard() {
     });
 }
 
+// Функция начала новой игры
 function startGame() {
     gameOver = false;
     score = 0;
@@ -277,4 +317,5 @@ function startGame() {
     leaderboardDiv.style.display = 'none';
 }
 
+// Запускаем игру при загрузке
 startGame();
