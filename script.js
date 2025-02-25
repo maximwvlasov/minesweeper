@@ -1,4 +1,4 @@
-// Ждём, пока Telegram WebApp будет готов
+// Ждёт, пока Telegram WebApp будет готов
 function waitForTelegram() {
     return new Promise((resolve) => {
         const checkTelegram = setInterval(() => {
