@@ -30,14 +30,9 @@ let score = 0;
 
 // Элементы DOM
 let gameField, scoreDiv, buttonContainer, leaderboardDiv, startButton, startMenu, minesweeperLaunch, backButton, leaderboardContainer, leaderboardContent, playerPosition, playerTotalScore, playerLeaderboardName;
-
+// Ожидание инициализации Telegram WebApp
 waitForTelegram().then(() => {
     console.log("Telegram WebApp инициализирован");
-
-    // Получаем информацию о пользователе (если нужно)
-    const user = getUserInfo();
-    console.log("Информация о пользователе:", user);
-
     // Инициализация DOM элементов
     startButton = document.getElementById('start-button');
     startMenu = document.getElementById('start-menu');
@@ -52,6 +47,33 @@ waitForTelegram().then(() => {
     playerPosition = document.getElementById('player-position');
     playerTotalScore = document.getElementById('player-total-score');
     playerLeaderboardName = document.getElementById('player-leaderboard-name');
+    // Проверка существования элементов
+    if (!startButton || !startMenu || !minesweeperLaunch || !gameField || !leaderboardContainer || !backButton) {
+        console.error("Один или несколько DOM-элементов не найдены!");
+        return;
+    }
+    // Скрываем все контейнеры по умолчанию
+    document.getElementById('taskbar').style.display = 'flex';
+    document.getElementById('game-container').classList.remove('active');
+    document.getElementById('leaderboard-container').classList.remove('active');
+    // Обработчики для меню Start
+    startButton.addEventListener('click', () => {
+        startMenu.style.display = startMenu.style.display === 'block' ? 'none' : 'block';
+    });
+    minesweeperLaunch.addEventListener('click', () => {
+        startMenu.style.display = 'none'; // Скрываем меню
+        document.getElementById('game-container').classList.add('active'); // Показываем игру
+        document.getElementById('leaderboard-container').classList.remove('active'); // Скрываем рейтинг
+        startGame();
+        console.log("Запуск игры 'Сапёр'...");
+    });
+    backButton.addEventListener('click', () => {
+        document.getElementById('game-container').classList.remove('active'); // Скрываем игру
+        document.getElementById('leaderboard-container').classList.remove('active'); // Скрываем рейтинг
+        startMenu.style.display = 'block'; // Показываем меню
+    });
+    // Ваша остальная логика здесь...
+});
 
     // Проверка существования элементов
     if (!startButton || !startMenu || !minesweeperLaunch || !gameField || !leaderboardContainer || !backButton) {
