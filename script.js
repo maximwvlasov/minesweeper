@@ -10,12 +10,25 @@ function waitForTelegram() {
     });
 }
 
-// Функция для получения параметров из URL
-function getUrlParams() {
-    const params = new URLSearchParams(window.location.search);
+// Функция для получения параметров из URL и Telegram initData
+function getUserInfo() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const username = urlParams.get('username') || `anonymous_${Math.random().toString(36).substr(2, 9)}`;
+    const firstName = urlParams.get('first_name') || 'Аноним';
+
+    // Получаем данные из Telegram WebApp
+    if (window.Telegram && window.Telegram.WebApp.initDataUnsafe?.user) {
+        const user = window.Telegram.WebApp.initDataUnsafe.user;
+        return {
+            username: username,
+            first_name: firstName || user.first_name || 'Аноним',
+            avatar: user.photo_url || '' // URL аватара, если доступен
+        };
+    }
     return {
-        username: params.get('username') || `anonymous_${Math.random().toString(36).substr(2, 9)}`,
-        first_name: params.get('first_name') || 'Аноним'
+        username: username,
+        first_name: firstName,
+        avatar: ''
     };
 }
 
@@ -29,20 +42,40 @@ let gameOver = false;
 let score = 0;
 
 // Элементы DOM
-let gameField, scoreDiv, buttonContainer, leaderboardDiv;
-
-// Глобальная переменная для хранения информации о пользователе
-let userInfo = null;
+let gameField, scoreDiv, buttonContainer, leaderboardDiv, startButton, startMenu, playerName, playerAvatar, minesweeperLaunch, leaderboardLaunch, backButton, leaderboardContent, playerPosition, playerTotalScore, playerLeaderboardName;
 
 waitForTelegram().then(() => {
-    // Получаем имя пользователя из URL
-    userInfo = getUrlParams();
+    // Получаем информацию о пользователе
+    const user = getUserInfo();
 
-    // Инициализация DOM элементов после загрузки Telegram
+    // Инициализация DOM элементов
+    startButton = document.getElementById('start-button');
+    startMenu = document.getElementById('start-menu');
+    playerName = document.getElementById('player-name');
+    playerAvatar = document.getElementById('player-avatar');
+    minesweeperLaunch = document.getElementById('minesweeper-launch');
+    leaderboardLaunch = document.getElementById('leaderboard-launch');
     gameField = document.getElementById('gameField');
     scoreDiv = document.getElementById('score');
     buttonContainer = document.getElementById('buttonContainer');
     leaderboardDiv = document.getElementById('leaderboard');
+    leaderboardContainer = document.getElementById('leaderboard-container');
+    backButton = document.getElementById('back-button');
+    leaderboardContent = document.getElementById('leaderboard-content');
+    playerPosition = document.getElementById('player-position');
+    playerTotalScore = document.getElementById('player-total-score');
+    playerLeaderboardName = document.getElementById('player-leaderboard-name');
+
+    // Устанавливаем имя и аватар игрока
+    playerName.textContent = user.first_name;
+    if (user.avatar) {
+        playerAvatar.src = user.avatar;
+    } else {
+        playerAvatar.style.display = 'none'; // Скрываем, если аватара нет
+    }
+
+    // Показываем контейнер игры по умолчанию
+    document.getElementById('game-container').classList.add('active');
 
     // Проверка доступности Firebase
     if (!window.db || !window.firebaseFunctions) {
@@ -59,9 +92,31 @@ waitForTelegram().then(() => {
         return button;
     }
 
-    // Создаём кнопки
+    // Создаём кнопки в игре
     createButton('Новая игра', startGame);
-    createButton('Рейтинг', showLeaderboard);
+    createButton('Рейтинг', () => showLeaderboard(true));
+
+    // Обработчики для меню Start
+    startButton.addEventListener('click', () => {
+        startMenu.style.display = startMenu.style.display === 'block' ? 'none' : 'block';
+    });
+
+    minesweeperLaunch.addEventListener('click', () => {
+        startMenu.style.display = 'none';
+        document.getElementById('game-container').classList.add('active');
+        document.getElementById('leaderboard-container').classList.remove('active');
+        startGame();
+    });
+
+    leaderboardLaunch.addEventListener('click', () => {
+        startMenu.style.display = 'none';
+        showLeaderboard(true);
+    });
+
+    backButton.addEventListener('click', () => {
+        document.getElementById('game-container').classList.add('active');
+        document.getElementById('leaderboard-container').classList.remove('active');
+    });
 
     // Функция создания игрового поля с минами
     function createField() {
@@ -90,7 +145,7 @@ waitForTelegram().then(() => {
     // Функция отрисовки игрового поля
     function renderField() {
         gameField.innerHTML = '';
-        gameField.style.gridTemplateColumns = `repeat(${FIELD_SIZE}, 40px)`;
+        gameField.style.gridTemplateColumns = `repeat(${FIELD_SIZE}, 32px)`;
         for (let i = 0; i < FIELD_SIZE; i++) {
             for (let j = 0; j < FIELD_SIZE; j++) {
                 const cell = document.createElement('div');
@@ -223,12 +278,21 @@ waitForTelegram().then(() => {
     }
 
     // Функция показа рейтинга по username
-    function showLeaderboard() {
-        leaderboardDiv.style.display = 'block';
-        leaderboardDiv.innerHTML = '<h3>Рейтинг игроков</h3>';
+    function showLeaderboard(showFullScreen = false) {
+        if (showFullScreen) {
+            document.getElementById('game-container').classList.remove('active');
+            document.getElementById('leaderboard-container').classList.add('active');
+        } else {
+            leaderboardDiv.style.display = 'block';
+        }
+
         if (!window.db || !window.firebaseFunctions) {
             console.error("Firebase не инициализирован! Проверьте подключение в HTML.");
-            leaderboardDiv.innerHTML += '<p>Ошибка загрузки рейтинга</p>';
+            if (showFullScreen) {
+                leaderboardContent.innerHTML = '<p>Ошибка загрузки рейтинга</p>';
+            } else {
+                leaderboardDiv.innerHTML = '<p>Ошибка загрузки рейтинга</p>';
+            }
             return;
         }
         const { ref, get } = window.firebaseFunctions;
@@ -237,22 +301,48 @@ waitForTelegram().then(() => {
                 const players = snapshot.val();
                 const sortedPlayers = Object.entries(players)
                     .sort((a, b) => b[1].totalScore - a[1].totalScore)
-                    .slice(0, 10);
+                    .map((entry, index) => ({ ...entry[1], position: index + 1 }));
                 if (sortedPlayers.length > 0) {
-                    sortedPlayers.forEach(([username, data]) => {
-                        leaderboardDiv.innerHTML += `<p>${data.first_name || username}: ${data.totalScore}</p>`;
+                    let html = '';
+                    sortedPlayers.forEach(player => {
+                        html += `<p>${player.position}. ${player.first_name || player.username}: ${player.totalScore}</p>`;
                     });
+
+                    if (showFullScreen) {
+                        leaderboardContent.innerHTML = html;
+                        // Устанавливаем данные текущего игрока в заголовке рейтинга
+                        const currentPlayer = sortedPlayers.find(p => p.username === userInfo.username);
+                        playerPosition.textContent = currentPlayer ? currentPlayer.position : '-';
+                        playerTotalScore.textContent = currentPlayer ? currentPlayer.totalScore : '0';
+                        playerLeaderboardName.textContent = userInfo.first_name;
+                    } else {
+                        leaderboardDiv.innerHTML = `<h3>Рейтинг игроков</h3>${html}`;
+                    }
                 } else {
-                    leaderboardDiv.innerHTML += '<p>Пока нет игроков</p>';
+                    if (showFullScreen) {
+                        leaderboardContent.innerHTML = '<p>Пока нет игроков</p>';
+                    } else {
+                        leaderboardDiv.innerHTML = '<p>Пока нет игроков</p>';
+                    }
                 }
             } else {
-                leaderboardDiv.innerHTML += '<p>Пока нет игроков</p>';
+                if (showFullScreen) {
+                    leaderboardContent.innerHTML = '<p>Пока нет игроков</p>';
+                } else {
+                    leaderboardDiv.innerHTML = '<p>Пока нет игроков</p>';
+                }
             }
-            const closeButton = createButton('Закрыть', () => leaderboardDiv.style.display = 'none');
-            leaderboardDiv.appendChild(closeButton);
+            if (!showFullScreen) {
+                const closeButton = createButton('Закрыть', () => leaderboardDiv.style.display = 'none');
+                leaderboardDiv.appendChild(closeButton);
+            }
         }).catch(error => {
             console.error("Ошибка загрузки рейтинга:", error);
-            leaderboardDiv.innerHTML += '<p>Ошибка загрузки рейтинга</p>';
+            if (showFullScreen) {
+                leaderboardContent.innerHTML = '<p>Ошибка загрузки рейтинга</p>';
+            } else {
+                leaderboardDiv.innerHTML = '<p>Ошибка загрузки рейтинга</p>';
+            }
         });
     }
 
