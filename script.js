@@ -10,6 +10,15 @@ function waitForTelegram() {
     });
 }
 
+// Функция для получения параметров из URL
+function getUrlParams() {
+    const params = new URLSearchParams(window.location.search);
+    return {
+        username: params.get('username') || `anonymous_${Math.random().toString(36).substr(2, 9)}`,
+        first_name: params.get('first_name') || 'Аноним'
+    };
+}
+
 // Настройки игры
 const FIELD_SIZE = 8;
 const MINES_COUNT = 10;
@@ -22,7 +31,13 @@ let score = 0;
 // Элементы DOM
 let gameField, scoreDiv, buttonContainer, leaderboardDiv;
 
+// Глобальная переменная для хранения информации о пользователе
+let userInfo = null;
+
 waitForTelegram().then(() => {
+    // Получаем имя пользователя из URL
+    userInfo = getUrlParams();
+
     // Инициализация DOM элементов после загрузки Telegram
     gameField = document.getElementById('gameField');
     scoreDiv = document.getElementById('score');
@@ -47,49 +62,6 @@ waitForTelegram().then(() => {
     // Создаём кнопки
     createButton('Новая игра', startGame);
     createButton('Рейтинг', showLeaderboard);
-
-    // Функция получения информации о пользователе
-    function getUserInfo() {
-        if (window.Telegram && window.Telegram.WebApp.initDataUnsafe?.user) {
-            const user = window.Telegram.WebApp.initDataUnsafe.user;
-            // Проверяем, есть ли у пользователя Telegram Premium (например, через is_premium, если доступно)
-            const isPremium = user.is_premium || false; // Это поле может быть доступно в initDataUnsafe
-            return {
-                username: user.username || `anonymous_${Math.random().toString(36).substr(2, 9)}`,
-                first_name: user.first_name || 'Аноним',
-                is_premium: isPremium
-            };
-        } else {
-            // В тестовом режиме генерируем анонимный идентификатор
-            return {
-                username: `anonymous_${Math.random().toString(36).substr(2, 9)}`,
-                first_name: 'Аноним',
-                is_premium: false
-            };
-        }
-    }
-
-    // Функция запроса разрешения на отображение имени в рейтинге
-    function requestPermissionToShowName(user, callback) {
-        const message = user.is_premium 
-            ? 'Вы используете Telegram Premium. Разрешить отображение вашего имени в рейтинге?' 
-            : 'Разрешить отображение вашего имени в рейтинге?';
-        
-        window.Telegram.WebApp.showPopup({
-            title: 'Разрешение на рейтинг',
-            message: message,
-            buttons: [
-                { id: 'yes', type: 'ok', text: 'Да' },
-                { id: 'no', type: 'cancel', text: 'Нет' }
-            ]
-        }, (btn) => {
-            if (btn.id === 'yes') {
-                callback(true); // Пользователь разрешил показ имени
-            } else {
-                callback(false); // Пользователь запретил показ имени
-            }
-        });
-    }
 
     // Функция создания игрового поля с минами
     function createField() {
@@ -145,8 +117,9 @@ waitForTelegram().then(() => {
         revealed[x][y] = true;
         if (field[x][y] === '💣') {
             gameOver = true;
-            alert(`Игра окончена! Ваш счёт: ${score}`);
-            saveScore();
+            saveScore().then(totalScore => {
+                showGameResult(score, totalScore);
+            });
             revealAll();
         } else {
             score += POINTS_PER_CELL;
@@ -186,8 +159,9 @@ waitForTelegram().then(() => {
         }
         if (unrevealed === 0) {
             gameOver = true;
-            alert(`Победа! Ваш счёт: ${score}`);
-            saveScore();
+            saveScore().then(totalScore => {
+                showGameResult(score, totalScore);
+            });
         }
     }
 
@@ -196,52 +170,55 @@ waitForTelegram().then(() => {
         scoreDiv.textContent = `Счёт: ${score}`;
     }
 
-    // Функция сохранения счёта в Firebase по username с отладкой и запросом разрешения
-    function saveScore() {
-        const user = getUserInfo();
-        console.log("Попытка сохранить счёт для пользователя:", user);
-        if (!window.db || !window.firebaseFunctions) {
-            console.error("Firebase не инициализирован! Проверьте подключение в HTML.");
-            return;
-        }
-        const { ref, get, update } = window.firebaseFunctions;
-
-        // Запрашиваем разрешение на отображение имени
-        requestPermissionToShowName(user, (showName) => {
-            if (showName) {
-                // Пользователь разрешил показ имени
-                const userRef = ref(window.db, `players/${user.username}`);
-                get(userRef).then(snapshot => {
-                    let currentScore = snapshot.exists() ? snapshot.val().totalScore || 0 : 0;
-                    console.log("Текущий счёт в базе:", currentScore);
-                    update(userRef, {
-                        username: user.username,
-                        totalScore: currentScore + score,
-                        first_name: user.first_name
-                    }).then(() => {
-                        console.log("Счёт успешно сохранён для:", user.username);
-                    }).catch(error => {
-                        console.error("Ошибка сохранения счёта:", error);
-                    });
-                }).catch(error => console.error("Ошибка чтения данных из Firebase:", error));
-            } else {
-                // Пользователь запретил показ имени — сохраняем как аноним
-                const anonUsername = `anonymous_${Math.random().toString(36).substr(2, 9)}`;
-                const userRef = ref(window.db, `players/${anonUsername}`);
-                get(userRef).then(snapshot => {
-                    let currentScore = snapshot.exists() ? snapshot.val().totalScore || 0 : 0;
-                    console.log("Текущий анонимный счёт в базе:", currentScore);
-                    update(userRef, {
-                        username: anonUsername,
-                        totalScore: currentScore + score,
-                        first_name: 'Аноним'
-                    }).then(() => {
-                        console.log("Анонимный счёт успешно сохранён для:", anonUsername);
-                    }).catch(error => {
-                        console.error("Ошибка сохранения анонимного счёта:", error);
-                    });
-                }).catch(error => console.error("Ошибка чтения анонимных данных из Firebase:", error));
+    // Функция показа результатов игры
+    function showGameResult(finalScore, totalScore) {
+        window.Telegram.WebApp.showPopup({
+            title: 'Результат игры',
+            message: `Игра окончена! Ваш счёт в этой игре: ${finalScore}\nОбщая сумма очков: ${totalScore}`,
+            buttons: [
+                { id: 'playAgain', type: 'ok', text: 'Ещё играть' }
+            ]
+        }, (btn) => {
+            if (btn.id === 'playAgain') {
+                startGame(); // Начать новую игру
             }
+        });
+    }
+
+    // Функция сохранения счёта в Firebase по username с отладкой (возвращает общую сумму очков)
+    function saveScore() {
+        return new Promise((resolve) => {
+            if (!userInfo) {
+                console.error("Информация о пользователе не определена!");
+                resolve(0);
+                return;
+            }
+            console.log("Попытка сохранить счёт для пользователя:", userInfo);
+            if (!window.db || !window.firebaseFunctions) {
+                console.error("Firebase не инициализирован! Проверьте подключение в HTML.");
+                resolve(0);
+                return;
+            }
+            const { ref, get, update } = window.firebaseFunctions;
+            const userRef = ref(window.db, `players/${userInfo.username}`);
+            get(userRef).then(snapshot => {
+                let currentScore = snapshot.exists() ? snapshot.val().totalScore || 0 : 0;
+                console.log("Текущий счёт в базе:", currentScore);
+                update(userRef, {
+                    username: userInfo.username,
+                    totalScore: currentScore + score,
+                    first_name: userInfo.first_name
+                }).then(() => {
+                    console.log("Счёт успешно сохранён для:", userInfo.username);
+                    resolve(currentScore + score); // Возвращаем новую сумму очков
+                }).catch(error => {
+                    console.error("Ошибка сохранения счёта:", error);
+                    resolve(0);
+                });
+            }).catch(error => {
+                console.error("Ошибка чтения данных из Firebase:", error);
+                resolve(0);
+            });
         });
     }
 
@@ -281,6 +258,10 @@ waitForTelegram().then(() => {
 
     // Функция начала новой игры
     function startGame() {
+        if (!userInfo) {
+            console.error("Информация о пользователе не определена! Запросите имя через бота.");
+            return;
+        }
         gameOver = false;
         score = 0;
         createField();
