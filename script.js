@@ -39,11 +39,21 @@ createButton('Рейтинг', showLeaderboard);
 function getUserInfo() {
     if (window.Telegram && window.Telegram.WebApp.initDataUnsafe?.user) {
         const user = window.Telegram.WebApp.initDataUnsafe.user;
-        return {
-            username: user.username || `anonymous_${Math.random().toString(36).substr(2, 9)}`,
-            first_name: user.first_name || 'Аноним'
-        };
+        // Приоритетно используем username, если он есть
+        if (user.username) {
+            return {
+                username: user.username,
+                first_name: user.first_name || user.username
+            };
+        } else {
+            // Если username отсутствует, используем first_name или генерируем анонимный идентификатор
+            return {
+                username: user.first_name || `anonymous_${Math.random().toString(36).substr(2, 9)}`,
+                first_name: user.first_name || 'Аноним'
+            };
+        }
     } else {
+        // В тестовом режиме генерируем анонимный идентификатор
         return {
             username: `anonymous_${Math.random().toString(36).substr(2, 9)}`,
             first_name: 'Аноним'
