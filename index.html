@@ -205,14 +205,14 @@
         <div class="menu-item" id="minesweeper-launch">Сапёр <span style="font-size: 12px;">💣</span></div>
     </div>
 
-    <div id="game-container" class="active"> <!-- Добавляем класс 'active' по умолчанию -->
+    <div id="game-container"> <!-- Убрали класс 'active' по умолчанию -->
         <div id="score">Счёт: 0</div>
         <div id="gameField"></div>
         <div id="buttonContainer"></div>
         <div id="leaderboard"></div>
     </div>
 
-    <div id="leaderboard-container">
+    <div id="leaderboard-container"> <!-- Убедимся, что этот контейнер не активен по умолчанию -->
         <div id="leaderboard-header">
             <button id="back-button">Назад</button>
             <div id="player-rank">Место: <span id="player-position"></span>, Очков: <span id="player-total-score"></span>, <span id="player-leaderboard-name"></span></div>
