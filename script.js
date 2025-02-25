@@ -78,6 +78,7 @@ function createField() {
 // Функция отрисовки игрового поля
 function renderField() {
     gameField.innerHTML = '';
+    gameField.style.gridTemplateColumns = `repeat(${FIELD_SIZE}, 40px)`;
     for (let i = 0; i < FIELD_SIZE; i++) {
         for (let j = 0; j < FIELD_SIZE; j++) {
             const cell = document.createElement('div');
@@ -208,9 +209,13 @@ function startGame() {
 // Запуск игры при загрузке
 document.addEventListener('DOMContentLoaded', startGame);
 
-// Адаптация темы под Telegram (если доступно)
+// Адаптация темы под Telegram
 if (window.Telegram && window.Telegram.WebApp.themeParams) {
     const theme = window.Telegram.WebApp.themeParams;
     if (theme.bg_color) document.body.style.backgroundColor = theme.bg_color;
     if (theme.text_color) document.body.style.color = theme.text_color;
+    if (theme.button_color) {
+        const buttons = document.querySelectorAll('button');
+        buttons.forEach(button => button.style.backgroundColor = theme.button_color);
+    }
 }
