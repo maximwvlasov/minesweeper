@@ -14,8 +14,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-console.log("Firebase инициализирован:", db);
-
 const FIELD_SIZE = 8;
 const MINES_COUNT = 10;
 const POINTS_PER_CELL = 10;
@@ -27,50 +25,74 @@ let score = 0;
 const gameField = document.createElement('div');
 gameField.id = 'game-field';
 document.body.appendChild(gameField);
-gameField.style.display = 'grid';
-gameField.style.gridTemplateColumns = `repeat(${FIELD_SIZE}, 40px)`;
-gameField.style.gap = '2px';
-gameField.style.marginTop = '20px';
-gameField.style.border = '2px solid black';
-gameField.style.padding = '10px';
-gameField.style.backgroundColor = '#bbb';
+gameField.style.cssText = `
+    display: grid;
+    grid-template-columns: repeat(${FIELD_SIZE}, 50px);
+    gap: 4px;
+    margin: 20px auto;
+    padding: 15px;
+    background: #e0e0e0;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    width: fit-content;
+`;
 
 const buttonContainer = document.createElement('div');
-buttonContainer.style.display = 'flex';
-buttonContainer.style.gap = '10px';
-buttonContainer.style.marginTop = '10px';
+buttonContainer.style.cssText = `
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin: 20px 0;
+`;
 document.body.appendChild(buttonContainer);
 
-const restartButton = document.createElement('button');
-restartButton.textContent = 'Новая игра';
-restartButton.style.padding = '10px';
-restartButton.style.fontSize = '16px';
-restartButton.style.cursor = 'pointer';
-buttonContainer.appendChild(restartButton);
-restartButton.addEventListener('click', startGame);
+const createButton = (text, onClick) => {
+    const button = document.createElement('button');
+    button.textContent = text;
+    button.style.cssText = `
+        padding: 12px 24px;
+        font-size: 16px;
+        cursor: pointer;
+        border: none;
+        border-radius: 8px;
+        background: #28a745;
+        color: white;
+        transition: background 0.3s;
+    `;
+    button.addEventListener('mouseover', () => button.style.background = '#218838');
+    button.addEventListener('mouseout', () => button.style.background = '#28a745');
+    button.addEventListener('click', onClick);
+    buttonContainer.appendChild(button);
+    return button;
+};
 
-const leaderboardButton = document.createElement('button');
-leaderboardButton.textContent = 'Рейтинг';
-leaderboardButton.style.padding = '10px';
-leaderboardButton.style.fontSize = '16px';
-leaderboardButton.style.cursor = 'pointer';
-buttonContainer.appendChild(leaderboardButton);
-leaderboardButton.addEventListener('click', showLeaderboard);
+createButton('Новая игра', startGame);
+createButton('Рейтинг', showLeaderboard);
 
 const scoreDiv = document.createElement('div');
 scoreDiv.id = 'score';
-scoreDiv.style.fontSize = '20px';
-scoreDiv.style.fontWeight = 'bold';
-scoreDiv.style.marginTop = '10px';
+scoreDiv.style.cssText = `
+    text-align: center;
+    font-size: 24px;
+    font-weight: bold;
+    margin: 10px 0;
+    color: #333;
+`;
 document.body.appendChild(scoreDiv);
 
 const leaderboardDiv = document.createElement('div');
 leaderboardDiv.id = 'leaderboard';
-leaderboardDiv.style.display = 'none';
-leaderboardDiv.style.marginTop = '20px';
-leaderboardDiv.style.backgroundColor = '#fff';
-leaderboardDiv.style.padding = '10px';
-leaderboardDiv.style.border = '1px solid black';
+leaderboardDiv.style.cssText = `
+    display: none;
+    margin: 20px auto;
+    padding: 15px;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    width: 300px;
+    max-height: 400px;
+    overflow-y: auto;
+`;
 document.body.appendChild(leaderboardDiv);
 
 window.Telegram.WebApp.ready();
@@ -110,19 +132,32 @@ function renderField() {
         for (let j = 0; j < FIELD_SIZE; j++) {
             const cell = document.createElement('div');
             cell.className = 'cell';
-            cell.style.width = '40px';
-            cell.style.height = '40px';
-            cell.style.border = '1px solid black';
-            cell.style.display = 'flex';
-            cell.style.alignItems = 'center';
-            cell.style.justifyContent = 'center';
-            cell.style.backgroundColor = '#fff';
-            cell.style.fontSize = '18px';
-            
+            cell.style.cssText = `
+                width: 50px;
+                height: 50px;
+                border: 2px solid #999;
+                border-radius: 5px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: ${revealed[i][j] ? '#d9d9d9' : '#fff'};
+                font-size: 20px;
+                cursor: ${gameOver ? 'default' : 'pointer'};
+                transition: background 0.2s;
+            `;
             if (revealed[i][j]) {
-                cell.style.backgroundColor = '#ccc';
                 cell.textContent = field[i][j] === 0 ? '' : field[i][j];
+                if (field[i][j] === '💣') {
+                    cell.style.background = '#ff4d4d';
+                    cell.textContent = '💣';
+                }
             }
+            cell.addEventListener('mouseover', () => {
+                if (!revealed[i][j] && !gameOver) cell.style.background = '#f0f0f0';
+            });
+            cell.addEventListener('mouseout', () => {
+                if (!revealed[i][j] && !gameOver) cell.style.background = '#fff';
+            });
             cell.addEventListener('click', () => openCell(i, j));
             gameField.appendChild(cell);
         }
@@ -132,45 +167,62 @@ function renderField() {
 
 function openCell(x, y) {
     if (gameOver || revealed[x][y]) return;
-    
+
     revealed[x][y] = true;
     if (field[x][y] === '💣') {
         gameOver = true;
-        revealAllBombs();
-        alert('Вы проиграли!');
+        alert(`Игра окончена! Ваш счёт: ${score}`);
         saveScore();
+        revealAll();
     } else {
         score += POINTS_PER_CELL;
+        if (field[x][y] === 0) {
+            for (let dx = -1; dx <= 1; dx++) {
+                for (let dy = -1; dy <= 1; dy++) {
+                    const newX = x + dx;
+                    const newY = y + dy;
+                    if (newX >= 0 && newX < FIELD_SIZE && newY >= 0 && newY < FIELD_SIZE) {
+                        openCell(newX, newY);
+                    }
+                }
+            }
+        }
         renderField();
-        saveScore();
+        checkWin();
     }
 }
 
-function revealAllBombs() {
+function revealAll() {
     for (let i = 0; i < FIELD_SIZE; i++) {
         for (let j = 0; j < FIELD_SIZE; j++) {
-            if (field[i][j] === '💣') {
-                revealed[i][j] = true;
-            }
+            revealed[i][j] = true;
         }
     }
     renderField();
 }
 
-function startGame() {
-    gameOver = false;
-    score = 0;
-    createField();
-    renderField();
+function checkWin() {
+    let unrevealed = 0;
+    for (let i = 0; i < FIELD_SIZE; i++) {
+        for (let j = 0; j < FIELD_SIZE; j++) {
+            if (!revealed[i][j] && field[i][j] !== '💣') unrevealed++;
+        }
+    }
+    if (unrevealed === 0) {
+        gameOver = true;
+        alert(`Победа! Ваш счёт: ${score}`);
+        saveScore();
+    }
 }
 
 function updateScore() {
-    scoreDiv.textContent = `Очки: ${score}`;
+    scoreDiv.textContent = `Счёт: ${score}`;
 }
 
 function saveScore() {
     const userName = getUserName();
-    set(ref(db, 'players/' + userName), { score });
+    set(ref(db, `players/${userName}`), { score })
+        .catch(error => console.error("Ошибка сохранения счёта:", error));
 }
 
 function showLeaderboard() {
@@ -178,12 +230,31 @@ function showLeaderboard() {
         leaderboardDiv.innerHTML = '<h3>Рейтинг игроков</h3>';
         if (snapshot.exists()) {
             const players = snapshot.val();
-            Object.entries(players).sort((a, b) => b[1].score - a[1].score).forEach(([name, data]) => {
+            const sortedPlayers = Object.entries(players)
+                .sort((a, b) => b[1].score - a[1].score)
+                .slice(0, 10); // Топ-10 игроков
+            sortedPlayers.forEach(([name, data]) => {
                 leaderboardDiv.innerHTML += `<p>${name}: ${data.score}</p>`;
             });
+        } else {
+            leaderboardDiv.innerHTML += '<p>Пока нет игроков</p>';
         }
         leaderboardDiv.style.display = 'block';
+        const closeButton = createButton('Закрыть', () => leaderboardDiv.style.display = 'none');
+        leaderboardDiv.appendChild(closeButton);
+    }).catch(error => {
+        console.error("Ошибка загрузки рейтинга:", error);
+        leaderboardDiv.innerHTML = '<p>Ошибка загрузки рейтинга</p>';
+        leaderboardDiv.style.display = 'block';
     });
+}
+
+function startGame() {
+    gameOver = false;
+    score = 0;
+    createField();
+    renderField();
+    leaderboardDiv.style.display = 'none';
 }
 
 startGame();
