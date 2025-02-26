@@ -17,10 +17,14 @@ waitForTelegram().then(() => {
     const startButton = document.getElementById('start-button');
     const startMenu = document.getElementById('start-menu');
     const minesweeperLaunch = document.getElementById('minesweeper-launch');
+    const ratingLaunch = document.getElementById('rating-launch');
     const gameContainer = document.getElementById('game-container');
     const gameField = document.getElementById('gameField');
     const scoreElement = document.getElementById('score');
     const taskbar = document.getElementById('taskbar');
+    const ratingContainer = document.getElementById('rating-container');
+    const ratingBody = document.getElementById('rating-body');
+    const closeRating = document.getElementById('close-rating');
 
     // Инициализация состояния
     let totalScore = 0;
@@ -30,14 +34,18 @@ waitForTelegram().then(() => {
     taskbar.style.display = 'flex';
     startMenu.style.display = 'none';
     gameContainer.style.display = 'none';
+    ratingContainer.style.display = 'none';
+
+    // Получаем данные игрока из Telegram
+    const user = window.Telegram.WebApp.initDataUnsafe?.user;
+    const playerName = user?.username || user?.first_name || 'Аноним';
 
     // Получаем данные из Firebase
     function loadScoreFromFirebase() {
-        const userId = window.Telegram.WebApp.initDataUnsafe?.user?.id || 'default_user';
-        const scoreRef = window.firebaseFunctions.ref(window.db, `scores/${userId}`);
+        const scoreRef = window.firebaseFunctions.ref(window.db, `scores/${user?.id || 'default_user'}`);
         window.firebaseFunctions.get(scoreRef).then((snapshot) => {
             if (snapshot.exists()) {
-                totalScore = snapshot.val() || 0;
+                totalScore = snapshot.val()?.score || 0;
                 updateScoreDisplay();
             }
         }).catch((error) => {
@@ -47,9 +55,8 @@ waitForTelegram().then(() => {
 
     // Сохраняем данные в Firebase
     function saveScoreToFirebase() {
-        const userId = window.Telegram.WebApp.initDataUnsafe?.user?.id || 'default_user';
-        const scoreRef = window.firebaseFunctions.ref(window.db, `scores/${userId}`);
-        window.firebaseFunctions.update(scoreRef, { score: totalScore }).catch((error) => {
+        const scoreRef = window.firebaseFunctions.ref(window.db, `scores/${user?.id || 'default_user'}`);
+        window.firebaseFunctions.update(scoreRef, { score: totalScore, name: playerName }).catch((error) => {
             console.error('Ошибка сохранения счёта в Firebase:', error);
         });
     }
@@ -57,6 +64,33 @@ waitForTelegram().then(() => {
     // Обновляем отображение счёта
     function updateScoreDisplay() {
         scoreElement.textContent = `Счёт: ${totalScore}`;
+    }
+
+    // Загружаем и отображаем рейтинг
+    function loadAndDisplayRating() {
+        const scoresRef = window.firebaseFunctions.ref(window.db, 'scores');
+        const scoresQuery = window.firebaseFunctions.query(scoresRef, window.firebaseFunctions.orderByChild('score'), window.firebaseFunctions.limitToLast(10)); // Топ-10 игроков
+        window.firebaseFunctions.get(scoresQuery).then((snapshot) => {
+            if (snapshot.exists()) {
+                const scores = Object.entries(snapshot.val()).map(([id, data]) => ({
+                    name: data.name || `Игрок ${id}`,
+                    score: data.score || 0
+                })).sort((a, b) => b.score - a.score);
+
+                ratingBody.innerHTML = '';
+                scores.forEach((player, index) => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${index + 1}</td>
+                        <td>${player.name}</td>
+                        <td>${player.score}</td>
+                    `;
+                    ratingBody.appendChild(row);
+                });
+            }
+        }).catch((error) => {
+            console.error('Ошибка загрузки рейтинга из Firebase:', error);
+        });
     }
 
     // Обработчик для кнопки "Start"
@@ -71,6 +105,19 @@ waitForTelegram().then(() => {
         gameActive = true;
         initializeGame();
         loadScoreFromFirebase(); // Загружаем текущий счёт при старте игры
+    });
+
+    // Обработчик для кнопки "Рейтинг"
+    ratingLaunch.addEventListener('click', () => {
+        startMenu.style.display = 'none';
+        ratingContainer.style.display = 'block';
+        loadAndDisplayRating();
+    });
+
+    // Обработчик для кнопки "Закрыть" в рейтинге
+    closeRating.addEventListener('click', () => {
+        ratingContainer.style.display = 'none';
+        startMenu.style.display = 'block';
     });
 
     // Инициализация игры
