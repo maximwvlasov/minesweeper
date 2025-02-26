@@ -1,4 +1,4 @@
-// Ждём, пока Telegram WebApp будет готов
+// Ждём загрузки Telegram WebApp
 function waitForTelegram() {
     return new Promise((resolve) => {
         const checkTelegram = setInterval(() => {
@@ -10,298 +10,145 @@ function waitForTelegram() {
     });
 }
 
-// Настройки игры
-const FIELD_SIZE = 8;
-const MINES_COUNT = 10;
-const POINTS_PER_CELL = 10;
-let field = [];
-let revealed = [];
-let gameOver = false;
-let score = 0;
-
-// Элементы DOM
-let gameField, scoreDiv, buttonContainer, leaderboardDiv;
-
 waitForTelegram().then(() => {
-    // Инициализация DOM элементов после загрузки Telegram
-    gameField = document.getElementById('gameField');
-    scoreDiv = document.getElementById('score');
-    buttonContainer = document.getElementById('buttonContainer');
-    leaderboardDiv = document.getElementById('leaderboard');
+    console.log("Telegram WebApp инициализирован");
 
-    // Проверка доступности Firebase
-    if (!window.db || !window.firebaseFunctions) {
-        console.error("Firebase не инициализирован! Проверьте подключение в HTML.");
-        return;
-    }
+    // Получаем элементы
+    const startButton = document.getElementById('start-button');
+    const startMenu = document.getElementById('start-menu');
+    const minesweeperLaunch = document.getElementById('minesweeper-launch');
+    const gameContainer = document.getElementById('game-container');
+    const taskbar = document.getElementById('taskbar');
+    const gameField = document.getElementById('gameField');
+    const score = document.getElementById('score');
+    const buttonContainer = document.getElementById('buttonContainer');
 
-    // Функция для создания кнопки
-    function createButton(text, onClick) {
-        const button = document.createElement('button');
-        button.textContent = text;
-        button.addEventListener('click', onClick);
-        buttonContainer.appendChild(button);
-        return button;
-    }
+    // Убедимся, что taskbar и startButton видны, а остальные скрыты
+    taskbar.style.display = 'flex';
+    startMenu.style.display = 'none';
+    gameContainer.style.display = 'none';
 
-    // Создаём кнопки
-    createButton('Новая игра', startGame);
-    createButton('Рейтинг', showLeaderboard);
+    // Обработчик для кнопки "Start"
+    startButton.addEventListener('click', () => {
+        startMenu.style.display = startMenu.style.display === 'block' ? 'none' : 'block';
+    });
 
-    // Функция получения информации о пользователе
-    function getUserInfo() {
-        if (window.Telegram && window.Telegram.WebApp.initDataUnsafe?.user) {
-            const user = window.Telegram.WebApp.initDataUnsafe.user;
-            // Проверяем, есть ли у пользователя Telegram Premium (например, через is_premium, если доступно)
-            const isPremium = user.is_premium || false; // Это поле может быть доступно в initDataUnsafe
-            return {
-                username: user.username || `anonymous_${Math.random().toString(36).substr(2, 9)}`,
-                first_name: user.first_name || 'Аноним',
-                is_premium: isPremium
-            };
-        } else {
-            // В тестовом режиме генерируем анонимный идентификатор
-            return {
-                username: `anonymous_${Math.random().toString(36).substr(2, 9)}`,
-                first_name: 'Аноним',
-                is_premium: false
-            };
-        }
-    }
+    // Обработчик для кнопки "Сапёр" в меню
+    minesweeperLaunch.addEventListener('click', () => {
+        startMenu.style.display = 'none';
+        gameContainer.style.display = 'block';
 
-    // Функция запроса разрешения на отображение имени в рейтинге
-    function requestPermissionToShowName(user, callback) {
-        const message = user.is_premium 
-            ? 'Вы используете Telegram Premium. Разрешить отображение вашего имени в рейтинге?' 
-            : 'Разрешить отображение вашего имени в рейтинге?';
-        
-        window.Telegram.WebApp.showPopup({
-            title: 'Разрешение на рейтинг',
-            message: message,
-            buttons: [
-                { id: 'yes', type: 'ok', text: 'Да' },
-                { id: 'no', type: 'cancel', text: 'Нет' }
-            ]
-        }, (btn) => {
-            if (btn.id === 'yes') {
-                callback(true); // Пользователь разрешил показ имени
-            } else {
-                callback(false); // Пользователь запретил показ имени
-            }
-        });
-    }
+        // Инициализация игры
+        initializeGame();
+    });
 
-    // Функция создания игрового поля с минами
-    function createField() {
-        field = Array(FIELD_SIZE).fill().map(() => Array(FIELD_SIZE).fill(0));
-        revealed = Array(FIELD_SIZE).fill().map(() => Array(FIELD_SIZE).fill(false));
-        let mines = 0;
-        while (mines < MINES_COUNT) {
-            const x = Math.floor(Math.random() * FIELD_SIZE);
-            const y = Math.floor(Math.random() * FIELD_SIZE);
-            if (field[x][y] !== '💣') {
-                field[x][y] = '💣';
-                mines++;
-                for (let dx = -1; dx <= 1; dx++) {
-                    for (let dy = -1; dy <= 1; dy++) {
-                        const newX = x + dx;
-                        const newY = y + dy;
-                        if (newX >= 0 && newX < FIELD_SIZE && newY >= 0 && newY < FIELD_SIZE && field[newX][newY] !== '💣') {
-                            field[newX][newY]++;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // Функция отрисовки игрового поля
-    function renderField() {
+    // Функция для инициализации игры
+    function initializeGame() {
+        // Очищаем предыдущее состояние поля
         gameField.innerHTML = '';
-        gameField.style.gridTemplateColumns = `repeat(${FIELD_SIZE}, 40px)`;
-        for (let i = 0; i < FIELD_SIZE; i++) {
-            for (let j = 0; j < FIELD_SIZE; j++) {
+        score.textContent = 'Счёт: 0';
+
+        // Создаём сетку 10x10 (можно настроить под ваши нужды)
+        const rows = 10;
+        const cols = 10;
+        const totalCells = rows * cols;
+        const bombCount = 10; // Количество мин, настройте по необходимости
+
+        // Генерируем случайные позиции для мин
+        const bombs = new Set();
+        while (bombs.size < bombCount) {
+            bombs.add(Math.floor(Math.random() * totalCells));
+        }
+
+        // Создаём игровое поле
+        for (let i = 0; i < rows; i++) {
+            for (let j = 0; j < cols; j++) {
                 const cell = document.createElement('div');
                 cell.className = 'cell';
-                if (revealed[i][j]) {
-                    cell.classList.add('revealed');
-                    if (field[i][j] === '💣') {
-                        cell.classList.add('bomb');
-                        cell.textContent = '💣';
-                    } else {
-                        cell.textContent = field[i][j] === 0 ? '' : field[i][j];
-                    }
+                cell.dataset.row = i;
+                cell.dataset.col = j;
+                const cellIndex = i * cols + j;
+
+                // Проверяем, является ли ячейка миной
+                if (bombs.has(cellIndex)) {
+                    cell.dataset.isBomb = true;
                 }
-                cell.addEventListener('click', () => openCell(i, j));
+
+                // Обработчик клика по ячейке
+                cell.addEventListener('click', handleCellClick);
                 gameField.appendChild(cell);
             }
         }
-        updateScore();
+
+        // Стилизуем игровое поле как сетку
+        gameField.style.gridTemplateColumns = `repeat(${cols}, 32px)`;
     }
 
-    // Функция открытия ячейки
-    function openCell(x, y) {
-        if (gameOver || revealed[x][y]) return;
-        revealed[x][y] = true;
-        if (field[x][y] === '💣') {
-            gameOver = true;
-            alert(`Игра окончена! Ваш счёт: ${score}`);
-            saveScore();
-            revealAll();
+    // Обработчик клика по ячейке
+    function handleCellClick(event) {
+        const cell = event.target;
+        if (cell.classList.contains('revealed')) return; // Игнорируем уже открытые ячейки
+
+        cell.classList.add('revealed');
+
+        // Проверяем, является ли ячейка миной
+        if (cell.dataset.isBomb) {
+            cell.classList.add('bomb');
+            cell.textContent = '💣';
+            alert('Вы проиграли! Нажмите "Start" для новой игры.');
+            resetGame();
         } else {
-            score += POINTS_PER_CELL;
-            if (field[x][y] === 0) {
-                for (let dx = -1; dx <= 1; dx++) {
-                    for (let dy = -1; dy <= 1; dy++) {
-                        const newX = x + dx;
-                        const newY = y + dy;
-                        if (newX >= 0 && newX < FIELD_SIZE && newY >= 0 && newY < FIELD_SIZE) {
-                            openCell(newX, newY);
+            // Подсчитываем количество мин вокруг (простая логика, можно улучшить)
+            const row = parseInt(cell.dataset.row);
+            const col = parseInt(cell.dataset.col);
+            let bombCount = 0;
+
+            // Проверяем соседние ячейки
+            for (let i = -1; i <= 1; i++) {
+                for (let j = -1; j <= 1; j++) {
+                    const newRow = row + i;
+                    const newCol = col + j;
+                    if (newRow >= 0 && newRow < 10 && newCol >= 0 && newCol < 10) {
+                        const neighbor = document.querySelector(`[data-row="${newRow}"][data-col="${newCol}"]`);
+                        if (neighbor && neighbor.dataset.isBomb) {
+                            bombCount++;
                         }
                     }
                 }
             }
-            renderField();
+
+            if (bombCount > 0) {
+                cell.textContent = bombCount;
+            }
+
+            // Проверяем победу (все ячейки без мин открыты)
             checkWin();
         }
     }
 
-    // Функция показа всех мин
-    function revealAll() {
-        for (let i = 0; i < FIELD_SIZE; i++) {
-            for (let j = 0; j < FIELD_SIZE; j++) {
-                revealed[i][j] = true;
-            }
-        }
-        renderField(); // Убедимся, что поле перерендерируется
-    }
-
-    // Функция проверки победы
+    // Функция для проверки победы
     function checkWin() {
-        let unrevealed = 0;
-        for (let i = 0; i < FIELD_SIZE; i++) {
-            for (let j = 0; j < FIELD_SIZE; j++) {
-                if (!revealed[i][j] && field[i][j] !== '💣') unrevealed++;
-            }
-        }
-        if (unrevealed === 0) {
-            gameOver = true;
-            alert(`Победа! Ваш счёт: ${score}`);
-            saveScore();
-        }
-    }
+        const cells = document.querySelectorAll('.cell');
+        let revealedNonBombs = 0;
+        const totalNonBombs = 100 - 10; // 10x10 поле с 10 минами
 
-    // Функция обновления счёта на экране
-    function updateScore() {
-        scoreDiv.textContent = `Счёт: ${score}`;
-    }
-
-    // Функция сохранения счёта в Firebase по username с отладкой и запросом разрешения
-    function saveScore() {
-        const user = getUserInfo();
-        console.log("Попытка сохранить счёт для пользователя:", user);
-        if (!window.db || !window.firebaseFunctions) {
-            console.error("Firebase не инициализирован! Проверьте подключение в HTML.");
-            return;
-        }
-        const { ref, get, update } = window.firebaseFunctions;
-
-        // Запрашиваем разрешение на отображение имени
-        requestPermissionToShowName(user, (showName) => {
-            if (showName) {
-                // Пользователь разрешил показ имени
-                const userRef = ref(window.db, `players/${user.username}`);
-                get(userRef).then(snapshot => {
-                    let currentScore = snapshot.exists() ? snapshot.val().totalScore || 0 : 0;
-                    console.log("Текущий счёт в базе:", currentScore);
-                    update(userRef, {
-                        username: user.username,
-                        totalScore: currentScore + score,
-                        first_name: user.first_name
-                    }).then(() => {
-                        console.log("Счёт успешно сохранён для:", user.username);
-                    }).catch(error => {
-                        console.error("Ошибка сохранения счёта:", error);
-                    });
-                }).catch(error => console.error("Ошибка чтения данных из Firebase:", error));
-            } else {
-                // Пользователь запретил показ имени — сохраняем как аноним
-                const anonUsername = `anonymous_${Math.random().toString(36).substr(2, 9)}`;
-                const userRef = ref(window.db, `players/${anonUsername}`);
-                get(userRef).then(snapshot => {
-                    let currentScore = snapshot.exists() ? snapshot.val().totalScore || 0 : 0;
-                    console.log("Текущий анонимный счёт в базе:", currentScore);
-                    update(userRef, {
-                        username: anonUsername,
-                        totalScore: currentScore + score,
-                        first_name: 'Аноним'
-                    }).then(() => {
-                        console.log("Анонимный счёт успешно сохранён для:", anonUsername);
-                    }).catch(error => {
-                        console.error("Ошибка сохранения анонимного счёта:", error);
-                    });
-                }).catch(error => console.error("Ошибка чтения анонимных данных из Firebase:", error));
+        cells.forEach(cell => {
+            if (cell.classList.contains('revealed') && !cell.dataset.isBomb) {
+                revealedNonBombs++;
             }
         });
-    }
 
-    // Функция показа рейтинга по username
-    function showLeaderboard() {
-        leaderboardDiv.style.display = 'block';
-        leaderboardDiv.innerHTML = '<h3>Рейтинг игроков</h3>';
-        if (!window.db || !window.firebaseFunctions) {
-            console.error("Firebase не инициализирован! Проверьте подключение в HTML.");
-            leaderboardDiv.innerHTML += '<p>Ошибка загрузки рейтинга</p>';
-            return;
-        }
-        const { ref, get } = window.firebaseFunctions;
-        get(ref(window.db, 'players')).then(snapshot => {
-            if (snapshot.exists()) {
-                const players = snapshot.val();
-                const sortedPlayers = Object.entries(players)
-                    .sort((a, b) => b[1].totalScore - a[1].totalScore)
-                    .slice(0, 10);
-                if (sortedPlayers.length > 0) {
-                    sortedPlayers.forEach(([username, data]) => {
-                        leaderboardDiv.innerHTML += `<p>${data.first_name || username}: ${data.totalScore}</p>`;
-                    });
-                } else {
-                    leaderboardDiv.innerHTML += '<p>Пока нет игроков</p>';
-                }
-            } else {
-                leaderboardDiv.innerHTML += '<p>Пока нет игроков</p>';
-            }
-            const closeButton = createButton('Закрыть', () => leaderboardDiv.style.display = 'none');
-            leaderboardDiv.appendChild(closeButton);
-        }).catch(error => {
-            console.error("Ошибка загрузки рейтинга:", error);
-            leaderboardDiv.innerHTML += '<p>Ошибка загрузки рейтинга</p>';
-        });
-    }
-
-    // Функция начала новой игры
-    function startGame() {
-        gameOver = false;
-        score = 0;
-        createField();
-        renderField();
-        leaderboardDiv.style.display = 'none';
-    }
-
-    // Запуск игры при загрузке
-    document.addEventListener('DOMContentLoaded', startGame);
-
-    // Адаптация темы под Telegram
-    if (window.Telegram && window.Telegram.WebApp.themeParams) {
-        const theme = window.Telegram.WebApp.themeParams;
-        if (theme.bg_color) document.body.style.backgroundColor = theme.bg_color;
-        if (theme.text_color) document.body.style.color = theme.text_color;
-        if (theme.button_color) {
-            const buttons = document.querySelectorAll('button');
-            buttons.forEach(button => button.style.backgroundColor = theme.button_color);
+        if (revealedNonBombs === totalNonBombs) {
+            alert('Поздравляем, вы выиграли! Нажмите "Start" для новой игры.');
+            resetGame();
         }
     }
-}).catch(error => console.error("Ошибка при инициализации игры:", error));
-    console.log("Исправленный скрипт загружен.");
+
+    // Функция для сброса игры
+    function resetGame() {
+        gameContainer.style.display = 'none';
+        startMenu.style.display = 'block';
+        gameField.innerHTML = '';
+        score.textContent = 'Счёт: 0';
+    }
 });
-
