@@ -203,6 +203,9 @@ waitForTelegram().then(() => {
                 cell.textContent = bombCount;
             }
 
+            // Начисляем 10 очков за каждую открытую ячейку без бомбы
+            totalScore += 10;
+            updateScoreDisplay();
             checkWin();
         }
     }
