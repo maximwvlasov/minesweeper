@@ -30,7 +30,7 @@
             align-items: center;
             padding: 0 10px;
             box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.5);
-            z-index: 1001; /* Убедимся, что панель выше других элементов */
+            z-index: 1001;
         }
 
         #start-button {
@@ -74,21 +74,26 @@
             background: #A0A0A0;
         }
 
-        .menu-item img {
-            width: 16px;
-            height: 16px;
-            margin-right: 10px;
+        #game-container {
+            display: none;
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        #score {
+            font-size: 16px;
+            margin-bottom: 10px;
+            color: #000000;
         }
 
         #gameField {
             display: grid;
             gap: 2px;
-            margin: 20px auto;
+            margin: 0 auto;
             padding: 5px;
             background: #C0C0C0;
             border: 2px solid #808080;
-            width: 320px;
-            justify-content: center;
+            width: 256px; /* 8 клеток по 32px + отступы */
         }
 
         .cell {
@@ -115,19 +120,10 @@
             border: 2px inset #808080;
         }
 
-        button {
-            padding: 8px 16px;
-            font-size: 14px;
-            cursor: pointer;
-            border: 2px outset #FFFFFF;
-            background: #008080;
-            color: white;
-            font-family: "MS Sans Serif", Arial, sans-serif;
-        }
-
-        button:hover {
-            background: #006666;
-            border: 2px inset #FFFFFF;
+        .cell.flagged {
+            background: #FFFF00;
+            border: 2px inset #808080;
+            content: '🚩';
         }
     </style>
 </head>
@@ -143,11 +139,36 @@
     <div id="game-container">
         <div id="score">Счёт: 0</div>
         <div id="gameField"></div>
-        <div id="buttonContainer"></div>
     </div>
 
     <!-- Подключаем Telegram WebApp API -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- Подключаем Firebase -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, get, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        // Конфигурация Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyCgxw8v14uSh924FW0ZoPFW8vXbltkhv9s",
+            authDomain: "minesweeperbot-26c18.firebaseapp.com",
+            databaseURL: "https://minesweeperbot-26c18-default-rtdb.firebaseio.com",
+            projectId: "minesweeperbot-26c18",
+            storageBucket: "minesweeperbot-26c18.appspot.com",
+            messagingSenderId: "464398182383",
+            appId: "1:464398182383:web:e4f2378178d89bad9fb81a"
+        };
+
+        // Инициализация Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // Делаем db и функции глобальными
+        window.db = db;
+        window.firebaseFunctions = { ref, get, update };
+
+        console.log("Firebase инициализирован");
+    </script>
     <!-- Подключаем основной скрипт -->
     <script src="script.js"></script>
 </body>
