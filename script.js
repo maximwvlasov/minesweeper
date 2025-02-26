@@ -44,7 +44,7 @@ waitForTelegram().then(() => {
     const user = window.Telegram.WebApp.initDataUnsafe?.user;
     const playerName = user?.username || user?.first_name || 'Аноним';
     const userId = user?.id || 'default_user';
-    console.log('Пользователь:', { userId, playerName });
+    console.log('Пользователь:', { userId, playerName, isPremium: user?.is_premium || false });
 
     // Получаем данные из Firebase
     function loadScoreFromFirebase() {
@@ -88,7 +88,7 @@ waitForTelegram().then(() => {
     function loadAndDisplayRating() {
         const scoresRef = window.firebaseFunctions.ref(window.db, 'scores');
         const scoresQuery = window.firebaseFunctions.query(scoresRef, window.firebaseFunctions.orderByChild('score'), window.firebaseFunctions.limitToLast(10)); // Топ-10 игроков
-        window.firebaseFunctions.get(scoresQuery).then((snapshot) => {
+        return window.firebaseFunctions.get(scoresQuery).then((snapshot) => {
             if (snapshot.exists()) {
                 const scores = Object.entries(snapshot.val()).map(([id, data]) => ({
                     name: data.name || `Игрок ${id}`,
@@ -110,6 +110,7 @@ waitForTelegram().then(() => {
                 const userPosition = scores.findIndex(p => p.name === playerName) + 1;
                 return userPosition || scores.length + 1; // Если пользователя нет в топ-10, показываем последнее место
             }
+            return null;
         }).catch((error) => {
             console.error('Ошибка загрузки рейтинга из Firebase:', error);
             return null;
@@ -199,7 +200,8 @@ waitForTelegram().then(() => {
 
                 cell.addEventListener('click', handleCellClick);
                 cell.addEventListener('contextmenu', handleRightClick); // Для установки флага правой кнопкой
-                cell.addEventListener('touchstart', handleTouchStart); // Для мобильных устройств
+                cell.addEventListener('touchstart', handleTouchStart, { passive: false }); // Улучшенная обработка для сенсорных устройств
+                cell.addEventListener('touchend', handleTouchEnd, { passive: false }); // Дополнительная обработка для сенсорных устройств
                 gameField.appendChild(cell);
             }
         }
@@ -210,6 +212,7 @@ waitForTelegram().then(() => {
     // Обработчик клика по ячейке (левая кнопка)
     function handleCellClick(event) {
         event.preventDefault();
+        console.log('Клик по ячейке:', event.type, event.target.dataset);
         const cell = event.target;
         if (cell.classList.contains('revealed') || cell.classList.contains('flagged')) return;
 
@@ -240,6 +243,7 @@ waitForTelegram().then(() => {
     // Обработчик правого клика (установка флага)
     function handleRightClick(event) {
         event.preventDefault();
+        console.log('Правый клик по ячейке:', event.target.dataset);
         const cell = event.target;
         if (cell.classList.contains('revealed')) return;
 
@@ -252,15 +256,24 @@ waitForTelegram().then(() => {
         }
     }
 
-    // Обработчик касания для мобильных устройств
+    // Обработчик касания для начала (мобильные устройства)
     function handleTouchStart(event) {
         event.preventDefault();
+        console.log('Touch start:', event.touches.length, event.target.dataset);
         const cell = event.target;
-        if (event.touches.length === 2) { // Два касания — эквивалент правого клика
-            handleRightClick(event);
-        } else {
+        if (event.touches.length === 1) {
+            // Одиночное касание — эквивалент левого клика
             handleCellClick(event);
+        } else if (event.touches.length === 2) {
+            // Двойное касание — эквивалент правого клика
+            handleRightClick(event);
         }
+    }
+
+    // Обработчик окончания касания (для точности на мобильных устройствах)
+    function handleTouchEnd(event) {
+        event.preventDefault();
+        console.log('Touch end:', event.changedTouches.length, event.target.dataset);
     }
 
     // Подсчёт мин вокруг ячейки
