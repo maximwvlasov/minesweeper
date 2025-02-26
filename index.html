@@ -136,14 +136,22 @@
         #rating-container {
             display: none;
             position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5); /* Полупрозрачный фон для затемнения */
+            z-index: 1002;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #rating-content {
             background: #C0C0C0;
             border: 2px solid #808080;
             padding: 20px;
             box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.5);
-            z-index: 1002;
             max-width: 300px;
             width: 90%;
             max-height: 80vh;
@@ -175,6 +183,9 @@
             color: white;
             font-size: 14px;
             margin-top: 10px;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
         }
 
         #close-rating:hover {
@@ -199,17 +210,19 @@
     </div>
 
     <div id="rating-container">
-        <table id="rating-table">
-            <thead>
-                <tr>
-                    <th>Место</th>
-                    <th>Имя</th>
-                    <th>Очки</th>
-                </tr>
-            </thead>
-            <tbody id="rating-body"></tbody>
-        </table>
-        <button id="close-rating">Закрыть</button>
+        <div id="rating-content">
+            <table id="rating-table">
+                <thead>
+                    <tr>
+                        <th>Место</th>
+                        <th>Имя</th>
+                        <th>Очки</th>
+                    </tr>
+                </thead>
+                <tbody id="rating-body"></tbody>
+            </table>
+            <button id="close-rating">Закрыть</button>
+        </div>
     </div>
 
     <!-- Подключаем Telegram WebApp API -->
