@@ -111,10 +111,10 @@ waitForTelegram().then(() => {
                 const userPosition = scores.findIndex(p => p.name === playerName) + 1;
                 return userPosition || scores.length + 1; // Если пользователя нет в топ-10, показываем последнее место
             }
-            return null;
+            return Promise.resolve(1); // Возвращаем дефолтное место в случае отсутствия данных
         }).catch((error) => {
             console.error('Ошибка загрузки рейтинга из Firebase:', error);
-            return null;
+            return Promise.resolve(1); // Возвращаем дефолтное место в случае ошибки
         });
     }
 
@@ -196,16 +196,21 @@ waitForTelegram().then(() => {
                 const cellIndex = i * cols + j;
 
                 if (bombs.has(cellIndex)) {
-                    cell.dataset.isBomb = true;
+                    cell.setAttribute('data-is-bomb', 'true'); // Устанавливаем атрибут через setAttribute для совместимости
                     console.log(`Бомба добавлена в ячейку [${i},${j}]`);
                 } else {
                     console.log(`Пустая ячейка в [${i},${j}]`);
                 }
 
-                cell.addEventListener('click', handleCellClick, { passive: false });
-                cell.addEventListener('contextmenu', handleRightClick, { passive: false }); // Для установки флага правой кнопкой
-                cell.addEventListener('touchstart', handleTouchStart, { passive: false }); // Улучшенная обработка для сенсорных устройств
-                cell.addEventListener('touchend', handleTouchEnd, { passive: false }); // Дополнительная обработка для сенсорных устройств
+                // Проверяем, поддерживает ли элемент addEventListener
+                if (cell.addEventListener) {
+                    cell.addEventListener('click', handleCellClick, false);
+                    cell.addEventListener('contextmenu', handleRightClick, false); // Для установки флага правой кнопкой
+                    cell.addEventListener('touchstart', handleTouchStart, { passive: false }); // Улучшенная обработка для сенсорных устройств
+                    cell.addEventListener('touchend', handleTouchEnd, { passive: false }); // Дополнительная обработка для сенсорных устройств
+                } else {
+                    console.error(`Элемент не поддерживает addEventListener для ячейки [${i},${j}]`);
+                }
                 gameField.appendChild(cell);
             }
         }
@@ -215,18 +220,30 @@ waitForTelegram().then(() => {
 
     // Обработчик клика по ячейке (левая кнопка)
     function handleCellClick(event) {
+        if (!event) {
+            console.error('Событие не определено в handleCellClick');
+            return;
+        }
         event.preventDefault();
-        console.log('Клик по ячейке:', event.type, event.target.dataset, 'Premium:', isPremium, 'isBomb:', event.target.dataset.isBomb);
+        console.log('Клик по ячейке:', event.type, event.target, 'Premium:', isPremium, 'isBomb:', event.target?.getAttribute('data-is-bomb'));
         const cell = event.target;
+        if (!cell || !cell.dataset) {
+            console.error('Цель события не определена или не имеет dataset');
+            return;
+        }
         if (cell.classList.contains('revealed') || cell.classList.contains('flagged')) return;
 
         cell.classList.add('revealed');
 
-        if (cell.dataset.isBomb) {
+        const isBomb = cell.getAttribute('data-is-bomb') === 'true'; // Используем getAttribute для совместимости
+        if (isBomb) {
             cell.classList.add('bomb');
             cell.textContent = '💣';
             loadAndDisplayRating().then(userPosition => {
                 showGameOver(`Вы проиграли! Ваш счёт: ${totalScore} очков. Ваше место в рейтинге: ${userPosition || 'Не в топ-10'}.`, false);
+            }).catch(error => {
+                console.error('Ошибка при загрузке рейтинга для поражения:', error);
+                showGameOver(`Вы проиграли! Ваш счёт: ${totalScore} очков. Ваше место в рейтинге: Неизвестно.`, false);
             });
         } else {
             const row = parseInt(cell.dataset.row);
@@ -246,9 +263,17 @@ waitForTelegram().then(() => {
 
     // Обработчик правого клика (установка флага)
     function handleRightClick(event) {
+        if (!event) {
+            console.error('Событие не определено в handleRightClick');
+            return;
+        }
         event.preventDefault();
-        console.log('Правый клик по ячейке:', event.target.dataset, 'Premium:', isPremium);
+        console.log('Правый клик по ячейке:', event.target, 'Premium:', isPremium);
         const cell = event.target;
+        if (!cell || !cell.dataset) {
+            console.error('Цель события не определена или не имеет dataset');
+            return;
+        }
         if (cell.classList.contains('revealed')) return;
 
         if (cell.classList.contains('flagged')) {
@@ -262,9 +287,17 @@ waitForTelegram().then(() => {
 
     // Обработчик касания для начала (мобильные устройства)
     function handleTouchStart(event) {
+        if (!event) {
+            console.error('Событие не определено в handleTouchStart');
+            return;
+        }
         event.preventDefault();
-        console.log('Touch start:', event.touches.length, event.target.dataset, 'Premium:', isPremium);
+        console.log('Touch start:', event.touches.length, event.target, 'Premium:', isPremium);
         const cell = event.target;
+        if (!cell || !cell.dataset) {
+            console.error('Цель события не определена или не имеет dataset');
+            return;
+        }
         if (event.touches.length === 1) {
             // Одиночное касание — эквивалент левого клика
             handleCellClick(event);
@@ -276,8 +309,12 @@ waitForTelegram().then(() => {
 
     // Обработчик окончания касания (для точности на мобильных устройствах)
     function handleTouchEnd(event) {
+        if (!event) {
+            console.error('Событие не определено в handleTouchEnd');
+            return;
+        }
         event.preventDefault();
-        console.log('Touch end:', event.changedTouches.length, event.target.dataset, 'Premium:', isPremium);
+        console.log('Touch end:', event.changedTouches.length, event.target, 'Premium:', isPremium);
     }
 
     // Подсчёт мин вокруг ячейки
@@ -292,7 +329,7 @@ waitForTelegram().then(() => {
                 const newCol = col + j;
                 if (newRow >= 0 && newRow < rows && newCol >= 0 && newCol < cols) {
                     const neighbor = document.querySelector(`[data-row="${newRow}"][data-col="${newCol}"]`);
-                    if (neighbor && neighbor.dataset.isBomb) {
+                    if (neighbor && neighbor.getAttribute('data-is-bomb') === 'true') {
                         bombCount++;
                     }
                 }
@@ -308,7 +345,7 @@ waitForTelegram().then(() => {
         const totalNonBombs = 64 - 10; // 8x8 поле с 10 минами
 
         cells.forEach(cell => {
-            if (cell.classList.contains('revealed') && !cell.dataset.isBomb) {
+            if (cell.classList.contains('revealed') && cell.getAttribute('data-is-bomb') !== 'true') {
                 revealedNonBombs++;
             }
         });
@@ -316,6 +353,9 @@ waitForTelegram().then(() => {
         if (revealedNonBombs === totalNonBombs) {
             loadAndDisplayRating().then(userPosition => {
                 showGameOver(`Вы выиграли! Ваш счёт: ${totalScore} очков. Ваше место в рейтинге: ${userPosition || 'Не в топ-10'}.`, true);
+            }).catch(error => {
+                console.error('Ошибка при загрузке рейтинга для победы:', error);
+                showGameOver(`Вы выиграли! Ваш счёт: ${totalScore} очков. Ваше место в рейтинге: Неизвестно.`, true);
             });
         }
     }
@@ -324,7 +364,7 @@ waitForTelegram().then(() => {
     function revealAllBombs() {
         const cells = document.querySelectorAll('.cell');
         cells.forEach(cell => {
-            if (cell.dataset.isBomb) {
+            if (cell.getAttribute('data-is-bomb') === 'true') {
                 cell.classList.add('revealed', 'bomb');
                 cell.textContent = '💣';
             }
