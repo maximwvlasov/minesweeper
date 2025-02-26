@@ -25,6 +25,9 @@ waitForTelegram().then(() => {
     const ratingContainer = document.getElementById('rating-container');
     const ratingBody = document.getElementById('rating-body');
     const closeRating = document.getElementById('close-rating');
+    const gameOverContainer = document.getElementById('game-over-container');
+    const gameOverMessage = document.getElementById('game-over-message');
+    const playAgainButton = document.getElementById('play-again');
 
     // Инициализация состояния
     let totalScore = 0;
@@ -35,6 +38,7 @@ waitForTelegram().then(() => {
     startMenu.style.display = 'none';
     gameContainer.style.display = 'none';
     ratingContainer.style.display = 'none';
+    gameOverContainer.style.display = 'none';
 
     // Получаем данные игрока из Telegram
     const user = window.Telegram.WebApp.initDataUnsafe?.user;
@@ -101,10 +105,25 @@ waitForTelegram().then(() => {
                     `;
                     ratingBody.appendChild(row);
                 });
+
+                // Определяем место пользователя в рейтинге
+                const userPosition = scores.findIndex(p => p.name === playerName) + 1;
+                return userPosition || scores.length + 1; // Если пользователя нет в топ-10, показываем последнее место
             }
         }).catch((error) => {
             console.error('Ошибка загрузки рейтинга из Firebase:', error);
+            return null;
         });
+    }
+
+    // Показать модальное окно после проигрыша или победы
+    function showGameOver(message, isWin) {
+        gameOverMessage.textContent = message;
+        gameOverContainer.style.display = 'block';
+        gameActive = false;
+        if (isWin) {
+            saveScoreToFirebase(); // Сохраняем счёт после победы
+        }
     }
 
     // Обработчик для кнопки "Start"
@@ -140,6 +159,15 @@ waitForTelegram().then(() => {
         } else {
             startMenu.style.display = 'block';
         }
+    });
+
+    // Обработчик для кнопки "Играть ещё"
+    playAgainButton.addEventListener('click', () => {
+        gameOverContainer.style.display = 'none';
+        resetGame();
+        gameContainer.style.display = 'block';
+        gameActive = true;
+        initializeGame();
     });
 
     // Инициализация игры
@@ -190,10 +218,9 @@ waitForTelegram().then(() => {
         if (cell.dataset.isBomb) {
             cell.classList.add('bomb');
             cell.textContent = '💣';
-            alert('Вы проиграли! Нажмите "Start" для новой игры.');
-            gameActive = false;
-            revealAllBombs();
-            saveScoreToFirebase(); // Сохраняем счёт после игры
+            loadAndDisplayRating().then(userPosition => {
+                showGameOver(`Вы проиграли! Ваш счёт: ${totalScore} очков. Ваше место в рейтинге: ${userPosition || 'Не в топ-10'}.`, false);
+            });
         } else {
             const row = parseInt(cell.dataset.row);
             const col = parseInt(cell.dataset.col);
@@ -270,11 +297,9 @@ waitForTelegram().then(() => {
         });
 
         if (revealedNonBombs === totalNonBombs) {
-            alert('Поздравляем, вы выиграли! Нажмите "Start" для новой игры.');
-            totalScore += 100; // Добавляем 100 очков за победу
-            gameActive = false;
-            updateScoreDisplay();
-            saveScoreToFirebase();
+            loadAndDisplayRating().then(userPosition => {
+                showGameOver(`Вы выиграли! Ваш счёт: ${totalScore} очков. Ваше место в рейтинге: ${userPosition || 'Не в топ-10'}.`, true);
+            });
         }
     }
 
