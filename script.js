@@ -167,7 +167,7 @@ waitForTelegram().then(() => {
     // Обработчик для кнопки "Играть ещё"
     playAgainButton.addEventListener('click', () => {
         gameOverContainer.style.display = 'none';
-        // Не сбрасываем totalScore, а сохраняем его для следующей игры
+        // Не сбрасываем totalScore, сохраняем его для следующей игры
         resetGame();
         gameContainer.style.display = 'block';
         gameActive = true;
