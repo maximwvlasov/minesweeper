@@ -75,6 +75,7 @@ waitForTelegram().then(() => {
     // Сохраняем данные в Firebase
     function saveScoreToFirebase() {
         const scoreRef = window.firebaseFunctions.ref(window.db, `scores/${userId}`);
+        console.log('Сохраняем в Firebase:', { userId, score: totalScore, name: playerName });
         window.firebaseFunctions.update(scoreRef, { score: totalScore, name: playerName }).catch((error) => {
             console.error('Ошибка сохранения счёта в Firebase:', error);
         });
@@ -123,9 +124,7 @@ waitForTelegram().then(() => {
         gameOverMessage.textContent = message;
         gameOverContainer.style.display = 'block';
         gameActive = false;
-        if (isWin) {
-            saveScoreToFirebase(); // Сохраняем счёт после победы
-        }
+        saveScoreToFirefox(); // Сохраняем счёт после поражения или победы
     }
 
     // Обработчик для кнопки "Start"
@@ -227,8 +226,8 @@ waitForTelegram().then(() => {
         event.preventDefault();
         console.log('Клик по ячейке:', event.type, event.target, 'Premium:', isPremium, 'isBomb:', event.target?.getAttribute('data-is-bomb'));
         const cell = event.target;
-        if (!cell || !cell.dataset) {
-            console.error('Цель события не определена или не имеет dataset');
+        if (!cell) {
+            console.error('Цель события не определена');
             return;
         }
         if (cell.classList.contains('revealed') || cell.classList.contains('flagged')) return;
@@ -270,8 +269,8 @@ waitForTelegram().then(() => {
         event.preventDefault();
         console.log('Правый клик по ячейке:', event.target, 'Premium:', isPremium);
         const cell = event.target;
-        if (!cell || !cell.dataset) {
-            console.error('Цель события не определена или не имеет dataset');
+        if (!cell) {
+            console.error('Цель события не определена');
             return;
         }
         if (cell.classList.contains('revealed')) return;
@@ -294,8 +293,8 @@ waitForTelegram().then(() => {
         event.preventDefault();
         console.log('Touch start:', event.touches.length, event.target, 'Premium:', isPremium);
         const cell = event.target;
-        if (!cell || !cell.dataset) {
-            console.error('Цель события не определена или не имеет dataset');
+        if (!cell) {
+            console.error('Цель события не определена');
             return;
         }
         if (event.touches.length === 1) {
