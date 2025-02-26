@@ -124,7 +124,9 @@ waitForTelegram().then(() => {
         gameOverMessage.textContent = message;
         gameOverContainer.style.display = 'block';
         gameActive = false;
-        saveScoreToFirefox(); // Сохраняем счёт после поражения или победы
+        // Сохраняем счёт перед сбросом игры
+        console.log('Сохранение счёта перед показом модального окна:', totalScore);
+        saveScoreToFirebase(); // Сохраняем счёт после поражения или победы
     }
 
     // Обработчик для кнопки "Start"
@@ -165,6 +167,7 @@ waitForTelegram().then(() => {
     // Обработчик для кнопки "Играть ещё"
     playAgainButton.addEventListener('click', () => {
         gameOverContainer.style.display = 'none';
+        // Не сбрасываем totalScore, а сохраняем его для следующей игры
         resetGame();
         gameContainer.style.display = 'block';
         gameActive = true;
@@ -372,6 +375,7 @@ waitForTelegram().then(() => {
 
     // Сброс игры
     function resetGame() {
+        // Не сбрасываем totalScore, сохраняем его для следующей игры
         gameContainer.style.display = 'none';
         startMenu.style.display = 'block';
         gameField.innerHTML = '';
