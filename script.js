@@ -46,10 +46,14 @@ waitForTelegram().then(() => {
         window.firebaseFunctions.get(scoreRef).then((snapshot) => {
             if (snapshot.exists()) {
                 totalScore = snapshot.val()?.score || 0;
-                updateScoreDisplay();
+            } else {
+                totalScore = 0; // Устанавливаем 0, если записи нет
             }
+            updateScoreDisplay();
         }).catch((error) => {
             console.error('Ошибка загрузки счёта из Firebase:', error);
+            totalScore = 0; // Устанавливаем 0 в случае ошибки
+            updateScoreDisplay();
         });
     }
 
@@ -109,7 +113,11 @@ waitForTelegram().then(() => {
 
     // Обработчик для кнопки "Рейтинг"
     ratingLaunch.addEventListener('click', () => {
-        startMenu.style.display = 'none';
+        if (gameActive) {
+            gameContainer.style.display = 'none';
+        } else {
+            startMenu.style.display = 'none';
+        }
         ratingContainer.style.display = 'block';
         loadAndDisplayRating();
     });
@@ -117,7 +125,11 @@ waitForTelegram().then(() => {
     // Обработчик для кнопки "Закрыть" в рейтинге
     closeRating.addEventListener('click', () => {
         ratingContainer.style.display = 'none';
-        startMenu.style.display = 'block';
+        if (gameActive) {
+            gameContainer.style.display = 'block';
+        } else {
+            startMenu.style.display = 'block';
+        }
     });
 
     // Инициализация игры
