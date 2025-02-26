@@ -48,7 +48,8 @@ waitForTelegram().then(() => {
         window.firebaseFunctions.get(scoreRef).then((snapshot) => {
             console.log('Данные из Firebase:', snapshot.val());
             if (snapshot.exists()) {
-                totalScore = snapshot.val()?.score || 0;
+                const data = snapshot.val();
+                totalScore = Number(data.score) || 0; // Принудительное преобразование в число
             } else {
                 totalScore = 0; // Устанавливаем 0, если записи нет
                 // Создаём запись для нового игрока, если её нет
@@ -87,7 +88,7 @@ waitForTelegram().then(() => {
             if (snapshot.exists()) {
                 const scores = Object.entries(snapshot.val()).map(([id, data]) => ({
                     name: data.name || `Игрок ${id}`,
-                    score: data.score || 0
+                    score: Number(data.score) || 0 // Принудительное преобразование в число
                 })).sort((a, b) => b.score - a.score);
 
                 ratingBody.innerHTML = '';
