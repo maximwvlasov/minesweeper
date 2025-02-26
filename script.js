@@ -39,27 +39,36 @@ waitForTelegram().then(() => {
     // Получаем данные игрока из Telegram
     const user = window.Telegram.WebApp.initDataUnsafe?.user;
     const playerName = user?.username || user?.first_name || 'Аноним';
+    const userId = user?.id || 'default_user';
+    console.log('Пользователь:', { userId, playerName });
 
     // Получаем данные из Firebase
     function loadScoreFromFirebase() {
-        const scoreRef = window.firebaseFunctions.ref(window.db, `scores/${user?.id || 'default_user'}`);
+        const scoreRef = window.firebaseFunctions.ref(window.db, `scores/${userId}`);
         window.firebaseFunctions.get(scoreRef).then((snapshot) => {
+            console.log('Данные из Firebase:', snapshot.val());
             if (snapshot.exists()) {
                 totalScore = snapshot.val()?.score || 0;
             } else {
                 totalScore = 0; // Устанавливаем 0, если записи нет
+                // Создаём запись для нового игрока, если её нет
+                window.firebaseFunctions.set(scoreRef, { score: 0, name: playerName }).then(() => {
+                    console.log('Создан новый игрок в Firebase:', userId);
+                }).catch((error) => {
+                    console.error('Ошибка создания записи в Firebase:', error);
+                });
             }
             updateScoreDisplay();
         }).catch((error) => {
             console.error('Ошибка загрузки счёта из Firebase:', error);
-            totalScore = 0; // Устанавливаем 0 в случае ошибки
+            totalScore = 0;
             updateScoreDisplay();
         });
     }
 
     // Сохраняем данные в Firebase
     function saveScoreToFirebase() {
-        const scoreRef = window.firebaseFunctions.ref(window.db, `scores/${user?.id || 'default_user'}`);
+        const scoreRef = window.firebaseFunctions.ref(window.db, `scores/${userId}`);
         window.firebaseFunctions.update(scoreRef, { score: totalScore, name: playerName }).catch((error) => {
             console.error('Ошибка сохранения счёта в Firebase:', error);
         });
@@ -283,6 +292,9 @@ waitForTelegram().then(() => {
         gameField.innerHTML = '';
         gameActive = false;
     }
+
+    // Загружаем счёт при запуске
+    loadScoreFromFirebase();
 }).catch(error => {
     console.error('Ошибка при инициализации Telegram WebApp:', error);
 });
