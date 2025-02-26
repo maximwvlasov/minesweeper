@@ -44,7 +44,8 @@ waitForTelegram().then(() => {
     const user = window.Telegram.WebApp.initDataUnsafe?.user;
     const playerName = user?.username || user?.first_name || 'Аноним';
     const userId = user?.id || 'default_user';
-    console.log('Пользователь:', { userId, playerName, isPremium: user?.is_premium || false });
+    const isPremium = user?.is_premium || false;
+    console.log('Пользователь:', { userId, playerName, isPremium });
 
     // Получаем данные из Firebase
     function loadScoreFromFirebase() {
@@ -196,10 +197,13 @@ waitForTelegram().then(() => {
 
                 if (bombs.has(cellIndex)) {
                     cell.dataset.isBomb = true;
+                    console.log(`Бомба добавлена в ячейку [${i},${j}]`);
+                } else {
+                    console.log(`Пустая ячейка в [${i},${j}]`);
                 }
 
-                cell.addEventListener('click', handleCellClick);
-                cell.addEventListener('contextmenu', handleRightClick); // Для установки флага правой кнопкой
+                cell.addEventListener('click', handleCellClick, { passive: false });
+                cell.addEventListener('contextmenu', handleRightClick, { passive: false }); // Для установки флага правой кнопкой
                 cell.addEventListener('touchstart', handleTouchStart, { passive: false }); // Улучшенная обработка для сенсорных устройств
                 cell.addEventListener('touchend', handleTouchEnd, { passive: false }); // Дополнительная обработка для сенсорных устройств
                 gameField.appendChild(cell);
@@ -212,7 +216,7 @@ waitForTelegram().then(() => {
     // Обработчик клика по ячейке (левая кнопка)
     function handleCellClick(event) {
         event.preventDefault();
-        console.log('Клик по ячейке:', event.type, event.target.dataset);
+        console.log('Клик по ячейке:', event.type, event.target.dataset, 'Premium:', isPremium, 'isBomb:', event.target.dataset.isBomb);
         const cell = event.target;
         if (cell.classList.contains('revealed') || cell.classList.contains('flagged')) return;
 
@@ -243,7 +247,7 @@ waitForTelegram().then(() => {
     // Обработчик правого клика (установка флага)
     function handleRightClick(event) {
         event.preventDefault();
-        console.log('Правый клик по ячейке:', event.target.dataset);
+        console.log('Правый клик по ячейке:', event.target.dataset, 'Premium:', isPremium);
         const cell = event.target;
         if (cell.classList.contains('revealed')) return;
 
@@ -259,13 +263,13 @@ waitForTelegram().then(() => {
     // Обработчик касания для начала (мобильные устройства)
     function handleTouchStart(event) {
         event.preventDefault();
-        console.log('Touch start:', event.touches.length, event.target.dataset);
+        console.log('Touch start:', event.touches.length, event.target.dataset, 'Premium:', isPremium);
         const cell = event.target;
         if (event.touches.length === 1) {
             // Одиночное касание — эквивалент левого клика
             handleCellClick(event);
-        } else if (event.touches.length === 2) {
-            // Двойное касание — эквивалент правого клика
+        } else if (event.touches.length >= 2) {
+            // Двойное или более касание — эквивалент правого клика
             handleRightClick(event);
         }
     }
@@ -273,7 +277,7 @@ waitForTelegram().then(() => {
     // Обработчик окончания касания (для точности на мобильных устройствах)
     function handleTouchEnd(event) {
         event.preventDefault();
-        console.log('Touch end:', event.changedTouches.length, event.target.dataset);
+        console.log('Touch end:', event.changedTouches.length, event.target.dataset, 'Premium:', isPremium);
     }
 
     // Подсчёт мин вокруг ячейки
