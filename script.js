@@ -18,41 +18,68 @@ waitForTelegram().then(() => {
     const startMenu = document.getElementById('start-menu');
     const minesweeperLaunch = document.getElementById('minesweeper-launch');
     const gameContainer = document.getElementById('game-container');
-    const taskbar = document.getElementById('taskbar');
     const gameField = document.getElementById('gameField');
-    const score = document.getElementById('score');
-    const buttonContainer = document.getElementById('buttonContainer');
+    const scoreElement = document.getElementById('score');
+    const taskbar = document.getElementById('taskbar');
 
-    // Убедимся, что taskbar и startButton видны, а остальные скрыты
+    // Инициализация состояния
+    let totalScore = 0;
+    let gameActive = false;
+
+    // Устанавливаем начальное состояние
     taskbar.style.display = 'flex';
     startMenu.style.display = 'none';
     gameContainer.style.display = 'none';
+
+    // Получаем данные из Firebase
+    function loadScoreFromFirebase() {
+        const userId = window.Telegram.WebApp.initDataUnsafe?.user?.id || 'default_user';
+        const scoreRef = window.firebaseFunctions.ref(window.db, `scores/${userId}`);
+        window.firebaseFunctions.get(scoreRef).then((snapshot) => {
+            if (snapshot.exists()) {
+                totalScore = snapshot.val() || 0;
+                updateScoreDisplay();
+            }
+        }).catch((error) => {
+            console.error('Ошибка загрузки счёта из Firebase:', error);
+        });
+    }
+
+    // Сохраняем данные в Firebase
+    function saveScoreToFirebase() {
+        const userId = window.Telegram.WebApp.initDataUnsafe?.user?.id || 'default_user';
+        const scoreRef = window.firebaseFunctions.ref(window.db, `scores/${userId}`);
+        window.firebaseFunctions.update(scoreRef, { score: totalScore }).catch((error) => {
+            console.error('Ошибка сохранения счёта в Firebase:', error);
+        });
+    }
+
+    // Обновляем отображение счёта
+    function updateScoreDisplay() {
+        scoreElement.textContent = `Счёт: ${totalScore}`;
+    }
 
     // Обработчик для кнопки "Start"
     startButton.addEventListener('click', () => {
         startMenu.style.display = startMenu.style.display === 'block' ? 'none' : 'block';
     });
 
-    // Обработчик для кнопки "Сапёр" в меню
+    // Обработчик для кнопки "Сапёр"
     minesweeperLaunch.addEventListener('click', () => {
         startMenu.style.display = 'none';
         gameContainer.style.display = 'block';
-
-        // Инициализация игры
+        gameActive = true;
         initializeGame();
+        loadScoreFromFirebase(); // Загружаем текущий счёт при старте игры
     });
 
-    // Функция для инициализации игры
+    // Инициализация игры
     function initializeGame() {
-        // Очищаем предыдущее состояние поля
         gameField.innerHTML = '';
-        score.textContent = 'Счёт: 0';
-
-        // Создаём сетку 10x10 (можно настроить под ваши нужды)
-        const rows = 10;
-        const cols = 10;
+        const rows = 8;
+        const cols = 8;
         const totalCells = rows * cols;
-        const bombCount = 10; // Количество мин, настройте по необходимости
+        const bombCount = 10; // Количество мин
 
         // Генерируем случайные позиции для мин
         const bombs = new Set();
@@ -69,68 +96,100 @@ waitForTelegram().then(() => {
                 cell.dataset.col = j;
                 const cellIndex = i * cols + j;
 
-                // Проверяем, является ли ячейка миной
                 if (bombs.has(cellIndex)) {
                     cell.dataset.isBomb = true;
                 }
 
-                // Обработчик клика по ячейке
                 cell.addEventListener('click', handleCellClick);
+                cell.addEventListener('contextmenu', handleRightClick); // Для установки флага правой кнопкой
+                cell.addEventListener('touchstart', handleTouchStart); // Для мобильных устройств
                 gameField.appendChild(cell);
             }
         }
 
-        // Стилизуем игровое поле как сетку
         gameField.style.gridTemplateColumns = `repeat(${cols}, 32px)`;
     }
 
-    // Обработчик клика по ячейке
+    // Обработчик клика по ячейке (левая кнопка)
     function handleCellClick(event) {
+        event.preventDefault();
         const cell = event.target;
-        if (cell.classList.contains('revealed')) return; // Игнорируем уже открытые ячейки
+        if (cell.classList.contains('revealed') || cell.classList.contains('flagged')) return;
 
         cell.classList.add('revealed');
 
-        // Проверяем, является ли ячейка миной
         if (cell.dataset.isBomb) {
             cell.classList.add('bomb');
             cell.textContent = '💣';
             alert('Вы проиграли! Нажмите "Start" для новой игры.');
-            resetGame();
+            gameActive = false;
+            revealAllBombs();
+            saveScoreToFirebase(); // Сохраняем счёт после игры
         } else {
-            // Подсчитываем количество мин вокруг (простая логика, можно улучшить)
             const row = parseInt(cell.dataset.row);
             const col = parseInt(cell.dataset.col);
-            let bombCount = 0;
-
-            // Проверяем соседние ячейки
-            for (let i = -1; i <= 1; i++) {
-                for (let j = -1; j <= 1; j++) {
-                    const newRow = row + i;
-                    const newCol = col + j;
-                    if (newRow >= 0 && newRow < 10 && newCol >= 0 && newCol < 10) {
-                        const neighbor = document.querySelector(`[data-row="${newRow}"][data-col="${newCol}"]`);
-                        if (neighbor && neighbor.dataset.isBomb) {
-                            bombCount++;
-                        }
-                    }
-                }
-            }
+            let bombCount = countNeighborBombs(row, col);
 
             if (bombCount > 0) {
                 cell.textContent = bombCount;
             }
 
-            // Проверяем победу (все ячейки без мин открыты)
             checkWin();
         }
     }
 
-    // Функция для проверки победы
+    // Обработчик правого клика (установка флага)
+    function handleRightClick(event) {
+        event.preventDefault();
+        const cell = event.target;
+        if (cell.classList.contains('revealed')) return;
+
+        if (cell.classList.contains('flagged')) {
+            cell.classList.remove('flagged');
+            cell.textContent = '';
+        } else {
+            cell.classList.add('flagged');
+            cell.textContent = '🚩';
+        }
+    }
+
+    // Обработчик касания для мобильных устройств
+    function handleTouchStart(event) {
+        event.preventDefault();
+        const cell = event.target;
+        if (event.touches.length === 2) { // Два касания — эквивалент правого клика
+            handleRightClick(event);
+        } else {
+            handleCellClick(event);
+        }
+    }
+
+    // Подсчёт мин вокруг ячейки
+    function countNeighborBombs(row, col) {
+        let bombCount = 0;
+        const rows = 8;
+        const cols = 8;
+
+        for (let i = -1; i <= 1; i++) {
+            for (let j = -1; j <= 1; j++) {
+                const newRow = row + i;
+                const newCol = col + j;
+                if (newRow >= 0 && newRow < rows && newCol >= 0 && newCol < cols) {
+                    const neighbor = document.querySelector(`[data-row="${newRow}"][data-col="${newCol}"]`);
+                    if (neighbor && neighbor.dataset.isBomb) {
+                        bombCount++;
+                    }
+                }
+            }
+        }
+        return bombCount;
+    }
+
+    // Проверка на победу
     function checkWin() {
         const cells = document.querySelectorAll('.cell');
         let revealedNonBombs = 0;
-        const totalNonBombs = 100 - 10; // 10x10 поле с 10 минами
+        const totalNonBombs = 64 - 10; // 8x8 поле с 10 минами
 
         cells.forEach(cell => {
             if (cell.classList.contains('revealed') && !cell.dataset.isBomb) {
@@ -140,15 +199,31 @@ waitForTelegram().then(() => {
 
         if (revealedNonBombs === totalNonBombs) {
             alert('Поздравляем, вы выиграли! Нажмите "Start" для новой игры.');
-            resetGame();
+            totalScore += 100; // Добавляем 100 очков за победу
+            gameActive = false;
+            updateScoreDisplay();
+            saveScoreToFirebase();
         }
     }
 
-    // Функция для сброса игры
+    // Показать все мины при проигрыше
+    function revealAllBombs() {
+        const cells = document.querySelectorAll('.cell');
+        cells.forEach(cell => {
+            if (cell.dataset.isBomb) {
+                cell.classList.add('revealed', 'bomb');
+                cell.textContent = '💣';
+            }
+        });
+    }
+
+    // Сброс игры
     function resetGame() {
         gameContainer.style.display = 'none';
         startMenu.style.display = 'block';
         gameField.innerHTML = '';
-        score.textContent = 'Счёт: 0';
+        gameActive = false;
     }
+}).catch(error => {
+    console.error('Ошибка при инициализации Telegram WebApp:', error);
 });
